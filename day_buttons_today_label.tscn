@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3 uid="uid://br10nre8feq3t"]
+
+[ext_resource type="StyleBox" uid="uid://br2le2q7ifosi" path="res://day_button_pressed_stylebox.tres" id="1_0rttv"]
+[ext_resource type="Script" uid="uid://c1fmkwwa4upsc" path="res://day_buttons_today_label.gd" id="2_700qk"]
+
+[sub_resource type="SystemFont" id="SystemFont_cfcev"]
+subpixel_positioning = 0
+
+[sub_resource type="FontVariation" id="FontVariation_wkegy"]
+base_font = SubResource("SystemFont_cfcev")
+spacing_top = -2
+spacing_bottom = -2
+
+[sub_resource type="LabelSettings" id="LabelSettings_cfcev"]
+font = SubResource("FontVariation_wkegy")
+font_size = 22
+font_color = Color(0, 0, 0, 1)
+
+[node name="TodayLabel" type="Label"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -60.0
+offset_top = -12.0
+offset_right = 60.0
+offset_bottom = 15.0
+grow_horizontal = 2
+theme_override_styles/normal = ExtResource("1_0rttv")
+text = "TODAY"
+label_settings = SubResource("LabelSettings_cfcev")
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("2_700qk")

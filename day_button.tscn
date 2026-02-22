@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=3 uid="uid://dsnuxettrqksg"]
+
+[ext_resource type="StyleBox" uid="uid://1fnkwiiyvgsk" path="res://day_button_normal_stylebox.tres" id="1_6kwav"]
+[ext_resource type="Script" uid="uid://bukfyhs8xl5ne" path="res://day_button.gd" id="1_xbr60"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_xbr60"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_xbr60"]
+resource_local_to_scene = false
+
+[sub_resource type="LabelSettings" id="LabelSettings_irwyx"]
+resource_local_to_scene = true
+font_size = 35
+font_color = Color(0.41568628, 0.44705883, 0.50980395, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_xbr60"]
+resource_local_to_scene = true
+font_size = 50
+
+[node name="DayButton" type="Button"]
+custom_minimum_size = Vector2(200, 200)
+pivot_offset = Vector2(100, 100)
+mouse_filter = 1
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 50
+theme_override_styles/normal = ExtResource("1_6kwav")
+theme_override_styles/pressed = ExtResource("1_6kwav")
+theme_override_styles/hover = ExtResource("1_6kwav")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_xbr60")
+toggle_mode = true
+button_group = SubResource("ButtonGroup_xbr60")
+script = ExtResource("1_xbr60")
+
+[node name="DayName" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 110.0
+grow_horizontal = 2
+text = "SUN"
+label_settings = SubResource("LabelSettings_irwyx")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DayNumber" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -139.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "22"
+label_settings = SubResource("LabelSettings_xbr60")
+horizontal_alignment = 1
+vertical_alignment = 1
