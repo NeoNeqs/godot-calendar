@@ -1,11 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://dra4wk4v3j7vi"]
+[gd_scene load_steps=10 format=3 uid="uid://dra4wk4v3j7vi"]
 
-[ext_resource type="Script" uid="uid://d3dy8a6hm0j7x" path="res://day_buttons.gd" id="1_3bjbd"]
 [ext_resource type="Script" uid="uid://dqdc4r54sew77" path="res://day_view.gd" id="1_8kjhj"]
 [ext_resource type="Texture2D" uid="uid://n5k42nd63vbv" path="res://assets/refresh_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="2_sc25q"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i3dal"]
-bg_color = Color(0, 0, 0, 1)
+[ext_resource type="Script" uid="uid://md2ygauhryh7" path="res://swiper.gd" id="3_8kjhj"]
+[ext_resource type="Script" uid="uid://d3dy8a6hm0j7x" path="res://day_buttons.gd" id="3_sc25q"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_i3dal"]
 font_size = 80
@@ -17,17 +15,56 @@ font_color = Color(0.46618086, 0.4661808, 0.4661808, 1)
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_3bjbd"]
 color = Color(0.32915837, 0.3291584, 0.3291584, 1)
 
-[node name="DayView" type="Panel"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i3dal")
-script = ExtResource("1_8kjhj")
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sc25q"]
+draw_center = false
 
-[node name="Margin" type="MarginContainer" parent="."]
-layout_mode = 1
+[sub_resource type="GDScript" id="GDScript_sc25q"]
+script/source = "extends PanelContainer
+
+var pressed: bool
+
+var is_scrolling: bool
+
+var last_pos: Vector2
+
+func _ready() -> void:
+	get_child(0).scroll_ended.connect(func () -> void:
+		SignalBus.swipe_stopped.emit()
+		#get_child(0).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		#is_scrolling = false
+	)
+	
+	get_child(0).scroll_started.connect(func () -> void:
+		#get_child(0).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		#is_scrolling = true
+		pass
+	)
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		#if pressed:
+			#print(\"1\")
+			#last_pos = motion.position
+		#else:
+			#print(\"2\")
+			#SignalBus.swiped.emit(last_pos.x - motion.position.x)
+			#if abs(motion.velocity.x) > abs(motion.velocity.y):
+				#SignalBus.swiped.emit(motion.relative.x)
+
+	elif event is InputEventMouseButton:
+		var button := event as InputEventMouseButton
+		if button.pressed:
+			last_pos = button.global_position
+		else:
+			SignalBus.swiped.emit(last_pos.x - button.global_position.x)
+	
+	elif event is InputEventScreenTouch:
+		pass
+"
+
+[node name="Margin" type="MarginContainer"]
+process_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -37,65 +74,77 @@ theme_override_constants/margin_left = 40
 theme_override_constants/margin_top = 120
 theme_override_constants/margin_right = 40
 theme_override_constants/margin_bottom = 40
+script = ExtResource("1_8kjhj")
 
-[node name="MainLayout" type="VBoxContainer" parent="Margin"]
+[node name="MainLayout" type="VBoxContainer" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 50
+theme_override_constants/separation = 30
 
-[node name="Header" type="VBoxContainer" parent="Margin/MainLayout"]
-layout_mode = 2
-
-[node name="HBoxContainer" type="HBoxContainer" parent="Margin/MainLayout/Header"]
+[node name="Header" type="VBoxContainer" parent="MainLayout"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Margin/MainLayout/Header/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="MainLayout/Header"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainLayout/Header/HBoxContainer"]
 layout_mode = 2
 text = "Schedule"
 label_settings = SubResource("LabelSettings_i3dal")
 
-[node name="Button" type="Button" parent="Margin/MainLayout/Header/HBoxContainer"]
+[node name="Reload" type="Button" parent="MainLayout/Header/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 10
 icon = ExtResource("2_sc25q")
 flat = true
 
-[node name="Label2" type="Label" parent="Margin/MainLayout/Header"]
+[node name="Label2" type="Label" parent="MainLayout/Header"]
 layout_mode = 2
 text = "Sunday, 22 February 2026"
 label_settings = SubResource("LabelSettings_3bjbd")
 
-[node name="HSeparator" type="HSeparator" parent="Margin/MainLayout"]
+[node name="HSeparator" type="HSeparator" parent="MainLayout"]
+visible = false
 layout_mode = 2
 theme_override_styles/separator = SubResource("StyleBoxLine_3bjbd")
 
-[node name="DayButtons" type="ScrollContainer" parent="Margin/MainLayout"]
+[node name="DayButtons" type="ScrollContainer" parent="MainLayout"]
 clip_contents = false
 layout_mode = 2
 horizontal_scroll_mode = 3
 vertical_scroll_mode = 0
-script = ExtResource("1_3bjbd")
+script = ExtResource("3_sc25q")
 
-[node name="DayButtonsContainer" type="HBoxContainer" parent="Margin/MainLayout/DayButtons"]
+[node name="DayButtonsContainer" type="HBoxContainer" parent="MainLayout/DayButtons"]
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="HSeparator2" type="HSeparator" parent="Margin/MainLayout"]
+[node name="HSeparator2" type="HSeparator" parent="MainLayout"]
+visible = false
 layout_mode = 2
 theme_override_styles/separator = SubResource("StyleBoxLine_3bjbd")
 
-[node name="Schedule" type="ScrollContainer" parent="Margin/MainLayout"]
+[node name="PanelContainer" type="PanelContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_sc25q")
+script = SubResource("GDScript_sc25q")
+
+[node name="Schedule" type="ScrollContainer" parent="MainLayout/PanelContainer"]
+process_mode = 1
+custom_minimum_size = Vector2(0, 500)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 3
 scroll_deadzone = 1
+script = ExtResource("3_8kjhj")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Margin/MainLayout/Schedule"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MainLayout/PanelContainer/Schedule"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
 theme_override_constants/separation = 40
 
-[node name="DummySpace" type="Control" parent="Margin/MainLayout/Schedule/VBoxContainer"]
+[node name="DummySpace" type="Control" parent="MainLayout/PanelContainer/Schedule/VBoxContainer"]
 layout_mode = 2

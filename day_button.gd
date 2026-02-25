@@ -4,8 +4,8 @@ extends Button
 @onready var day_name: Label = $DayName
 @onready var day_number: Label = $DayNumber
 
-const DAY_BUTTON_NORMAL_STYLEBOX: StyleBoxFlat = preload("uid://1fnkwiiyvgsk")
-const DAY_BUTTON_PRESSED_STYLEBOX: StyleBoxFlat = preload("uid://br2le2q7ifosi")
+var DAY_BUTTON_NORMAL_STYLEBOX: StyleBoxFlat = load("uid://1fnkwiiyvgsk")
+var DAY_BUTTON_PRESSED_STYLEBOX: StyleBoxFlat = load("uid://br2le2q7ifosi")
 
 
 func update(weekday: String, day: int) -> void:

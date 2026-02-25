@@ -13,7 +13,12 @@ config_version=5
 config/name="uek_plan"
 run/main_scene="uid://dra4wk4v3j7vi"
 config/features=PackedStringArray("4.5", "Forward Plus")
+boot_splash/bg_color=Color(0, 0, 0, 1)
 config/icon="res://icon.svg"
+
+[autoload]
+
+SignalBus="*res://signal_bus.gd"
 
 [display]
 
@@ -33,4 +38,6 @@ pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
+renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)

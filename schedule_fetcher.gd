@@ -8,7 +8,7 @@ const file := "user://schedule.html"
 
 func fetch() -> HTTPRequest:
 	var _http := HTTPRequest.new()
-	_http.request_completed.connect(func _request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray) -> void:
+	_http.request_completed.connect(func _request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 		if response_code == 200:
 			done.emit(file)
 		else:

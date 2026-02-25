@@ -20,5 +20,10 @@ static func load_config() -> Config:
 	
 	return _config
 
+static func unload() -> void:
+	_config.last_fetch_timestamp = 0
+	_config.schedule = null
+	save()
+
 static func save() -> void:
 	ResourceSaver.save(_config, file_path, ResourceSaver.FLAG_CHANGE_PATH | ResourceSaver.FLAG_COMPRESS)
