@@ -24,8 +24,8 @@ func _ready() -> void:
 			return
 	
 		var i := (day_buttons_container.get_child(0) as Button).button_group.get_pressed_button().get_index()
-		if abs(dir) >= 250.0 and i - sign(dir) >= 0 and i - sign(dir) < day_buttons_container.get_child_count():
-			day_buttons_container.get_child(i - sign(dir)).set_pressed(true)
+		if abs(dir) >= 250.0 and i + sign(dir) >= 0 and i + sign(dir) < day_buttons_container.get_child_count():
+			day_buttons_container.get_child(i + sign(dir)).set_pressed(true)
 			can_swipe = false
 	)
 	

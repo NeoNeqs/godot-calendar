@@ -12,8 +12,11 @@ config_version=5
 
 config/name="uek_plan"
 run/main_scene="uid://dra4wk4v3j7vi"
+run/print_header=false
 config/features=PackedStringArray("4.5", "Forward Plus")
+run/low_processor_mode=true
 boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
 config/icon="res://icon.svg"
 
 [autoload]
@@ -35,6 +38,11 @@ project/assembly_name="uek_plan"
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+2d/physics_engine="Dummy"
+3d/physics_engine="Dummy"
 
 [rendering]
 

@@ -1,0 +1,77 @@
+[gd_scene load_steps=3 format=3 uid="uid://ht0074yl453k"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8iklj"]
+bg_color = Color(0.09411765, 0.09411765, 0.105882354, 1)
+
+[sub_resource type="GDScript" id="GDScript_8iklj"]
+script/source = "@tool
+extends PanelContainer
+
+const line_clr := Color(\"27272a\")
+const time_clr := Color(\"9c9cac\")
+const start_time := 8.0
+const end_time := 20.0
+const line_spacing := 160.0
+const offset := 30.0
+const item_margin_x := 20.0
+const item_margin_y := 10.0
+
+var item_style := StyleBoxFlat.new()
+
+func _init() -> void:
+	item_style.corner_detail = 20
+	item_style.set_corner_radius_all(20)
+	item_style.bg_color = Color.ORANGE_RED
+
+func _draw() -> void:
+	for i: int in Vector2(start_time, end_time + 1):
+		draw_line(Vector2(0, (i - start_time) * line_spacing), Vector2(size.x, (i - start_time) * line_spacing), line_clr, 2)
+		draw_string(get_theme_default_font(), Vector2(10, (i - start_time) * line_spacing + offset), \"%02d:00\" % [i], HORIZONTAL_ALIGNMENT_LEFT, -1, 24, time_clr)
+	draw_line(Vector2(line_spacing, 0), Vector2(line_spacing, size.y), line_clr, 2)
+	
+	_draw_item(9, 11, \"Test1\")
+	_draw_item(11, 12, \"Test1\")
+
+func _draw_item(from: float, to: float, lecture_text: String) -> void:
+	const item_padding := 20
+	const font_size := 40
+	const align := HORIZONTAL_ALIGNMENT_LEFT
+	var font: Font = get_theme_default_font()
+	var item_position := Vector2(line_spacing + item_margin_x, (from - start_time) * line_spacing + item_margin_y)
+	var item_size := Vector2(size.x - line_spacing - item_margin_x * 2, (to-from) * line_spacing - item_margin_y * 2)
+	var content_margin := line_spacing + item_margin_x + item_padding
+	var max_size := size.x - line_spacing - item_margin_x * 2 - item_padding * 2
+	var text_size := font.get_string_size(lecture_text, align, -1, font_size)
+	
+	draw_style_box(item_style, Rect2(item_position, item_size))
+	if text_size.x > max_size:
+		text_size.x = max_size - font.get_string_size(\"...\", align, -1, font_size).x
+		draw_string(
+			font, 
+			Vector2(content_margin + text_size.x, item_position.y + font.get_height(font_size)), 
+			\"...\", 
+			align, 
+			-1, 
+			font_size, 
+			Color.WHITE
+		)
+	draw_string(
+		font, 
+		Vector2(content_margin, item_position.y + font.get_height(font_size)), 
+		lecture_text, 
+		HORIZONTAL_ALIGNMENT_LEFT, 
+		text_size.x, 
+		font_size, 
+		Color.WHITE
+	)
+	pass
+"
+
+[node name="MainView" type="PanelContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_8iklj")
+script = SubResource("GDScript_8iklj")
