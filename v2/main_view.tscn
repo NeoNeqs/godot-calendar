@@ -1,71 +1,915 @@
-[gd_scene load_steps=3 format=3 uid="uid://ht0074yl453k"]
+[gd_scene load_steps=49 format=3 uid="uid://ht0074yl453k"]
+
+[ext_resource type="Texture2D" uid="uid://crhn3f6mobf6j" path="res://assets/record_voice_over_30dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="1_i2mmo"]
+[ext_resource type="FontFile" uid="uid://bxfd0d5rt10kt" path="res://assets/Lato/Lato-Bold.ttf" id="2_iedju"]
+
+[sub_resource type="FontVariation" id="FontVariation_iedju"]
+base_font = ExtResource("2_iedju")
+
+[sub_resource type="Theme" id="Theme_mf8vr"]
+default_font = SubResource("FontVariation_iedju")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8iklj"]
-bg_color = Color(0.09411765, 0.09411765, 0.105882354, 1)
+bg_color = Color(0.0627451, 0.08627451, 0.13333334, 1)
 
 [sub_resource type="GDScript" id="GDScript_8iklj"]
-script/source = "@tool
-extends PanelContainer
+script/source = "extends PanelContainer
 
-const line_clr := Color(\"27272a\")
-const time_clr := Color(\"9c9cac\")
-const start_time := 8.0
-const end_time := 20.0
-const line_spacing := 160.0
-const offset := 30.0
-const item_margin_x := 20.0
-const item_margin_y := 10.0
+@onready var scroll_container: ScrollContainer = $ScrollContainer
+@onready var content: Control = null
 
-var item_style := StyleBoxFlat.new()
+var pressed: bool = false
+var scroll_speed := Vector2.ZERO
+var axis_locked: int = 0 # 0 = none, 1 = horizontal, 2 = vertical
+var last_motion := Vector2.ZERO
+var cumulative_motion := Vector2.ZERO
 
-func _init() -> void:
-	item_style.corner_detail = 20
-	item_style.set_corner_radius_all(20)
-	item_style.bg_color = Color.ORANGE_RED
+var dragging: bool = false
+var drag_start_h: float = 0.0
+
+var snapping: bool = false
+var snap_start_h: float = 0.0
+var snap_target_h: float = 0.0
+var snap_elapsed: float = 0.0
+
+const DEADZONE: float = 6.0
+const SENSITIVITY: float = 0.7
+const INERTIA_MULTIPLIER: float = 2.5
+const MAX_SPEED: float = 6000.0
+const DECAY: float = 4.5
+const MIN_SPEED: float = 30.0
+
+# fraction of viewport width required to change column
+const SNAP_THRESHOLD_RATIO: float = 0.3
+const SNAP_DURATION: float = 0.20
+const SNAP_VELOCITY_THRESHOLD: float = 250.0  # optional: px/sec to force snap on quick fling
+
+func _ready() -> void:
+	set_process(true)
+	if scroll_container and scroll_container.get_child_count() > 0:
+		content = scroll_container.get_child(0) as Control
 
 func _draw() -> void:
-	for i: int in Vector2(start_time, end_time + 1):
-		draw_line(Vector2(0, (i - start_time) * line_spacing), Vector2(size.x, (i - start_time) * line_spacing), line_clr, 2)
-		draw_string(get_theme_default_font(), Vector2(10, (i - start_time) * line_spacing + offset), \"%02d:00\" % [i], HORIZONTAL_ALIGNMENT_LEFT, -1, 24, time_clr)
-	draw_line(Vector2(line_spacing, 0), Vector2(line_spacing, size.y), line_clr, 2)
-	
-	_draw_item(9, 11, \"Test1\")
-	_draw_item(11, 12, \"Test1\")
+	draw_line(Vector2(75, 0), Vector2(75, size.y), Color(\"1e293b\"), 4)
 
-func _draw_item(from: float, to: float, lecture_text: String) -> void:
-	const item_padding := 20
-	const font_size := 40
-	const align := HORIZONTAL_ALIGNMENT_LEFT
-	var font: Font = get_theme_default_font()
-	var item_position := Vector2(line_spacing + item_margin_x, (from - start_time) * line_spacing + item_margin_y)
-	var item_size := Vector2(size.x - line_spacing - item_margin_x * 2, (to-from) * line_spacing - item_margin_y * 2)
-	var content_margin := line_spacing + item_margin_x + item_padding
-	var max_size := size.x - line_spacing - item_margin_x * 2 - item_padding * 2
-	var text_size := font.get_string_size(lecture_text, align, -1, font_size)
-	
-	draw_style_box(item_style, Rect2(item_position, item_size))
-	if text_size.x > max_size:
-		text_size.x = max_size - font.get_string_size(\"...\", align, -1, font_size).x
-		draw_string(
-			font, 
-			Vector2(content_margin + text_size.x, item_position.y + font.get_height(font_size)), 
-			\"...\", 
-			align, 
-			-1, 
-			font_size, 
-			Color.WHITE
-		)
-	draw_string(
-		font, 
-		Vector2(content_margin, item_position.y + font.get_height(font_size)), 
-		lecture_text, 
-		HORIZONTAL_ALIGNMENT_LEFT, 
-		text_size.x, 
-		font_size, 
-		Color.WHITE
+func _gui_input(event: InputEvent) -> void:
+	if snapping:
+		return
+	if event is InputEventMouseButton:
+		_handle_mouse_button(event as InputEventMouseButton)
+	elif event is InputEventMouseMotion:
+		_handle_mouse_motion(event as InputEventMouseMotion)
+
+# --- input helpers --------------------------------------------------------
+
+func _handle_mouse_button(ev: InputEventMouseButton) -> void:
+	if ev.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if ev.pressed:
+		_on_drag_start()
+	else:
+		_on_drag_release()
+
+func _handle_mouse_motion(motion: InputEventMouseMotion) -> void:
+	if not pressed:
+		return
+	var rel: Vector2 = motion.relative * SENSITIVITY
+	last_motion = rel
+	cumulative_motion += rel
+
+	# If axis not decided yet, wait until buffered motion crosses deadzone.
+	if axis_locked == 0:
+		if cumulative_motion.length() <= DEADZONE:
+			return
+		# Decide axis from the buffered motion and apply buffered movement along that axis.
+		axis_locked = 1 if absf(cumulative_motion.x) > absf(cumulative_motion.y) else 2
+		var initial_rel := Vector2.ZERO
+		if axis_locked == 1:
+			initial_rel.x = cumulative_motion.x
+		else:
+			initial_rel.y = cumulative_motion.y
+		_apply_scroll(initial_rel)
+		scroll_speed = _clamped_velocity_from_rel(initial_rel)
+		_enforce_axis_on_speed()
+		cumulative_motion = Vector2.ZERO
+		return
+
+	# Axis already chosen: zero non-locked axis and apply current rel
+	if axis_locked == 1:
+		rel.y = 0
+	else:
+		rel.x = 0
+	_apply_scroll(rel)
+	scroll_speed = _clamped_velocity_from_rel(rel)
+	_enforce_axis_on_speed()
+
+func _on_drag_start() -> void:
+	pressed = true
+	dragging = true
+	axis_locked = 0
+	scroll_speed = Vector2.ZERO
+	last_motion = Vector2.ZERO
+	cumulative_motion = Vector2.ZERO
+	if scroll_container:
+		drag_start_h = float(scroll_container.get_h_scroll())
+
+func _on_drag_release() -> void:
+	pressed = false
+	dragging = false
+	if axis_locked == 0:
+		# determine axis from buffered motion or residual speed
+		if cumulative_motion.length() > 0.0:
+			axis_locked = 1 if absf(cumulative_motion.x) > absf(cumulative_motion.y) else 2
+		elif scroll_speed.length() > 0.0:
+			axis_locked = 1 if absf(scroll_speed.x) > absf(scroll_speed.y) else 2
+	_enforce_axis_on_speed()
+	if axis_locked == 1:
+		_start_horizontal_snap_from_drag()
+	cumulative_motion = Vector2.ZERO
+
+# --- velocity / helpers --------------------------------------------------
+
+func _clamped_velocity_from_rel(rel: Vector2) -> Vector2:
+	var v: Vector2 = rel * 60.0 * INERTIA_MULTIPLIER
+	var speed: float = v.length()
+	if speed > MAX_SPEED and speed > 0.0:
+		v = v.normalized() * MAX_SPEED
+	return v
+
+func _enforce_axis_on_speed() -> void:
+	if axis_locked == 1:
+		scroll_speed.y = 0
+	elif axis_locked == 2:
+		scroll_speed.x = 0
+
+# --- process / inertia / snap -------------------------------------------
+
+func _process(delta: float) -> void:
+	if snapping:
+		_update_snap(delta)
+		return
+	_handle_inertia(delta)
+
+func _handle_inertia(delta: float) -> void:
+	if pressed or scroll_speed.length() <= MIN_SPEED:
+		return
+	if axis_locked == 0:
+		if scroll_speed.length() > 0.0:
+			axis_locked = 1 if absf(scroll_speed.x) > absf(scroll_speed.y) else 2
+		_enforce_axis_on_speed()
+
+	var move: Vector2 = scroll_speed * delta
+	if axis_locked == 1:
+		move.y = 0
+	else:
+		move.x = 0
+	_apply_scroll(move)
+
+	# exponential decay
+	var decay_factor: float = exp(-DECAY * delta)
+	scroll_speed *= decay_factor
+
+	if scroll_speed.length() <= MIN_SPEED:
+		scroll_speed = Vector2.ZERO
+		axis_locked = 0
+
+func _update_snap(delta: float) -> void:
+	snap_elapsed += delta
+	var t: float = clampf(snap_elapsed / SNAP_DURATION, 0.0, 1.0)
+	var eased: float = 1.0 - pow(1.0 - t, 3) # ease-out cubic
+	var new_h: float = lerpf(snap_start_h, snap_target_h, eased)
+	scroll_container.set_h_scroll(int(new_h))
+	if t >= 1.0:
+		snapping = false
+		axis_locked = 0
+		scroll_speed = Vector2.ZERO
+
+# --- snapping logic -----------------------------------------------------
+
+func _start_horizontal_snap_from_drag() -> void:
+	if not scroll_container or not content:
+		return
+	var vw := float(scroll_container.size.x)
+	if vw <= 0.0:
+		return
+	var release_h := float(scroll_container.get_h_scroll())
+	var delta_h: float = release_h - drag_start_h
+	var delta_fraction: float = delta_h / vw
+	var threshold_frac: float = SNAP_THRESHOLD_RATIO
+
+	var max_index: int = floori(content.size.x / vw)
+	# compute visually centered start index
+	var start_index: int = clampi(floori((drag_start_h + vw * 0.5) / vw), 0, max_index)
+	var target_index: int = start_index
+
+	if delta_fraction >= threshold_frac:
+		target_index = clampi(start_index + 1, 0, max_index)
+	elif delta_fraction <= -threshold_frac:
+		target_index = clampi(start_index - 1, 0, max_index)
+	else:
+		# optional velocity override — only if fling agrees with drag direction
+		if absf(scroll_speed.x) >= SNAP_VELOCITY_THRESHOLD:
+			var fling_dir: float = -signf(scroll_speed.x) # finger right -> content left -> index -1
+			var drag_dir: float = signf(delta_h)
+			if drag_dir == 0:
+				drag_dir = fling_dir
+			if fling_dir == drag_dir and drag_dir != 0:
+				target_index = clampi(start_index + (1 if drag_dir > 0 else -1), 0, max_index)
+			# else stay on start_index
+
+	var target_h := float(target_index) * vw
+	snapping = true
+	snap_elapsed = 0.0
+	snap_start_h = float(scroll_container.get_h_scroll())
+	snap_target_h = clampf(target_h, 0.0, maxf(0.0, content.size.x - vw))
+	scroll_speed.x = 0.0
+	axis_locked = 1
+
+# --- low-level scrolling -----------------------------------------------
+
+func _apply_scroll(delta_pos: Vector2) -> void:
+	if not scroll_container or not content:
+		return
+	var max_h: float = maxf(0.0, content.size.x - scroll_container.size.x)
+	var max_v: float = maxf(0.0, content.size.y - scroll_container.size.y)
+	var h := float(scroll_container.get_h_scroll())
+	var v := float(scroll_container.get_v_scroll())
+	h = clampf(h - delta_pos.x, 0.0, max_h)
+	v = clampf(v - delta_pos.y, 0.0, max_v)
+	scroll_container.set_h_scroll(int(h))
+	scroll_container.set_v_scroll(int(v))
+
+
+#extends PanelContainer
+#
+#@onready var scroll_container: ScrollContainer = $ScrollContainer
+#@onready var content: Control = null
+#
+#var pressed := false
+#var scroll_speed := Vector2.ZERO
+#var axis_locked := 0 # 0 = none, 1 = horizontal, 2 = vertical
+#var last_motion := Vector2.ZERO
+#var cumulative_motion := Vector2.ZERO
+#
+#var dragging := false
+#var drag_start_h := 0.0
+#
+#
+#var snapping := false
+#var snap_start_h := 0.0
+#var snap_target_h := 0.0
+#var snap_elapsed := 0.0
+#
+#const DEADZONE := 6.0
+#const SENSITIVITY := 0.7
+#const INERTIA_MULTIPLIER := 2.5
+#const MAX_SPEED := 6000.0
+#const DECAY := 4.5
+#const MIN_SPEED := 30.0
+#
+### fraction of viewport width required to change column
+#const SNAP_THRESHOLD_RATIO := 0.3   
+#const SNAP_DURATION := 0.20
+#const SNAP_VELOCITY_THRESHOLD := 250.0  # optional: px/sec to force snap on quick fling
+#
+#func _ready() -> void:
+	#set_process(true)
+	#if scroll_container and scroll_container.get_child_count() > 0:
+		#content = scroll_container.get_child(0) as Control
+#
+#func _draw() -> void:
+	#draw_line(Vector2(75, 0), Vector2(75, size.y), Color(\"1e293b\"), 4)
+#
+#func _gui_input(event: InputEvent) -> void:
+	## ignore user input while snapping
+	#if snapping:
+		#return
+#
+	#if event is InputEventMouseButton:
+		#if event.button_index == MOUSE_BUTTON_LEFT:
+			#if event.pressed:
+				#pressed = true
+				#dragging = true
+				#axis_locked = 0
+				#scroll_speed = Vector2.ZERO
+				#last_motion = Vector2.ZERO
+				#cumulative_motion = Vector2.ZERO
+				## record the horizontal offset at drag start
+				#if scroll_container:
+					#drag_start_h = float(scroll_container.get_h_scroll())
+			#else:
+				## on release: lock axis if needed and start snap if horizontal
+				#pressed = false
+				#dragging = false
+				#if axis_locked == 0:
+					## pick axis from cumulative motion or velocity
+					#if cumulative_motion.length() > 0.0:
+						#if abs(cumulative_motion.x) > abs(cumulative_motion.y):
+							#axis_locked = 1
+						#else:
+							#axis_locked = 2
+					#elif scroll_speed.length() > 0.0:
+						#if abs(scroll_speed.x) > abs(scroll_speed.y):
+							#axis_locked = 1
+						#else:
+							#axis_locked = 2
+				#_enforce_axis_on_speed()
+				## If horizontal, determine snap based on drag start + delta (or fling)
+				#if axis_locked == 1:
+					#_start_horizontal_snap_from_drag()
+				## vertical inertia handled in _process
+				#cumulative_motion = Vector2.ZERO
+	#elif event is InputEventMouseMotion:
+		#var motion := event as InputEventMouseMotion
+		#if pressed:
+			#var rel := motion.relative * SENSITIVITY
+			#last_motion = rel
+			## buffer movement until we have a clear axis (prevent small pre-lock drift)
+			#cumulative_motion += rel
+#
+			## If axis not decided yet, only apply when cumulative motion exceeds DEADZONE
+			#if axis_locked == 0:
+				#if cumulative_motion.length() <= DEADZONE:
+					## not enough movement yet — don't move content at all
+					#return
+				## choose axis based on buffered cumulative movement
+				#if abs(cumulative_motion.x) > abs(cumulative_motion.y):
+					#axis_locked = 1
+				#else:
+					#axis_locked = 2
+				## apply the buffered movement only along the chosen axis
+				#var initial_rel := Vector2.ZERO
+				#if axis_locked == 1:
+					#initial_rel.x = cumulative_motion.x
+				#else:
+					#initial_rel.y = cumulative_motion.y
+				#_apply_scroll(initial_rel)
+				## set a sensible initial fling velocity from that buffered motion
+				#var v0 := initial_rel * 60.0 * INERTIA_MULTIPLIER
+				#var sp0 := v0.length()
+				#if sp0 > MAX_SPEED and sp0 > 0.0:
+					#v0 = v0.normalized() * MAX_SPEED
+				#scroll_speed = v0
+				#_enforce_axis_on_speed()
+				## we've applied the buffer, clear it
+				#cumulative_motion = Vector2.ZERO
+				#return
+#
+			## axis already chosen — zero the non-locked axis and apply current rel
+			#if axis_locked == 1:
+				#rel.y = 0
+			#elif axis_locked == 2:
+				#rel.x = 0
+			#_apply_scroll(rel)
+#
+			## estimate fling velocity (px/sec) and clamp to safe max
+			#var v := rel * 60.0 * INERTIA_MULTIPLIER
+			#var speed := v.length()
+			#if speed > MAX_SPEED and speed > 0.0:
+				#v = v.normalized() * MAX_SPEED
+			## while dragging, ensure velocity respects axis lock
+			#scroll_speed = v
+			#_enforce_axis_on_speed()
+#
+#func _process(delta: float) -> void:
+	## Snap animation (highest priority)
+	#if snapping:
+		#snap_elapsed += delta
+		#var t := clampf(snap_elapsed / SNAP_DURATION, 0.0, 1.0)
+		## smooth ease-out cubic
+		#var eased := 1.0 - pow(1.0 - t, 3)
+		#var new_h := lerpf(snap_start_h, snap_target_h, eased)
+		#scroll_container.set_h_scroll(int(new_h))
+		## finish snap
+		#if t >= 1.0:
+			#snapping = false
+			#axis_locked = 0
+			#scroll_speed = Vector2.ZERO
+		#return
+#
+	## inertia handling when released (vertical allowed; horizontal inertia suppressed if snap was started)
+	#if not pressed and scroll_speed.length() > MIN_SPEED:
+		## if axis isn't locked yet, pick axis based on velocity and enforce it
+		#if axis_locked == 0 and scroll_speed.length() > 0.0:
+			#if abs(scroll_speed.x) > abs(scroll_speed.y):
+				#axis_locked = 1
+			#else:
+				#axis_locked = 2
+			#_enforce_axis_on_speed()
+#
+		#var move := scroll_speed * delta
+		#if axis_locked == 1:
+			#move.y = 0
+		#elif axis_locked == 2:
+			#move.x = 0
+		#_apply_scroll(move)
+#
+		## exponential decay (frame-rate independent)
+		#var decay_factor := exp(-DECAY * delta)
+		#scroll_speed *= decay_factor
+#
+		## stop guard
+		#if scroll_speed.length() <= MIN_SPEED:
+			#scroll_speed = Vector2.ZERO
+			#axis_locked = 0
+#
+#func _start_horizontal_snap_from_drag() -> void:
+	## Decide snap target based on drag start + delta and optional fling velocity override
+	#if not scroll_container or not content:
+		#return
+	#var vw := float(scroll_container.size.x)
+	#if vw <= 0.0:
+		#return
+	#var release_h := float(scroll_container.get_h_scroll())
+	#var delta_h := release_h - drag_start_h
+	#var delta_fraction := delta_h / vw
+	#var threshold_frac := SNAP_THRESHOLD_RATIO
+#
+	#var max_index := int(floor(content.size.x / vw))
+	## Determine which column was visually centered at drag start (robust to tiny offsets)
+	#var start_index := int(clamp(floor((drag_start_h + vw * 0.5) / vw), 0, max_index))
+#
+	#var target_index := start_index
+#
+	## Primary rule: distance-based threshold (uses fraction of viewport)
+	#if delta_fraction >= threshold_frac:
+		#target_index = clampi(start_index + 1, 0, max_index)
+	#elif delta_fraction <= -threshold_frac:
+		#target_index = clampi(start_index - 1, 0, max_index)
+	#else:
+		## No distance threshold passed — optionally allow a velocity override
+		## Only use velocity override if it is clearly in the same direction as the drag.
+		#if abs(scroll_speed.x) >= SNAP_VELOCITY_THRESHOLD:
+			## map fling to column delta: finger right -> content moves left -> index -1
+			#var fling_dir := signf(scroll_speed.x) * -1
+			#var drag_dir := signf(delta_h)
+			## If drag_dir == 0 (tiny drag) fall back to fling direction
+			#if drag_dir == 0:
+				#drag_dir = fling_dir
+			## Only allow velocity override when fling and drag agree
+			#if fling_dir == drag_dir and drag_dir != 0:
+				#if drag_dir > 0:
+					#target_index = clamp(start_index + 1, 0, max_index)
+				#else:
+					#target_index = clamp(start_index - 1, 0, max_index)
+			#else:
+				#target_index = start_index
+		#else:
+			#target_index = start_index
+#
+	## compute target offset in px and start the snap
+	#var target_h := float(target_index) * vw
+	#snapping = true
+	#snap_elapsed = 0.0
+	#snap_start_h = float(scroll_container.get_h_scroll())
+	#snap_target_h = clampf(target_h, 0.0, maxf(0.0, content.size.x - vw))
+	## cancel horizontal inertia during snap
+	#scroll_speed.x = 0.0
+	#axis_locked = 1
+#func _enforce_axis_on_speed() -> void:
+	#if axis_locked == 1:
+		#scroll_speed.y = 0
+	#elif axis_locked == 2:
+		#scroll_speed.x = 0
+#
+#func _apply_scroll(delta_pos: Vector2) -> void:
+	#if not scroll_container or not content:
+		#return
+	## compute maximum scrollable offsets using Control.size (Godot 4)
+	#var max_h := maxf(0.0, content.size.x - scroll_container.size.x)
+	#var max_v := maxf(0.0, content.size.y - scroll_container.size.y)
+	#var h := float(scroll_container.get_h_scroll())
+	#var v := float(scroll_container.get_v_scroll())
+	## subtract pointer delta so content follows finger naturally
+	#h = clampf(h - delta_pos.x, 0.0, max_h)
+	#v = clampf(v - delta_pos.y, 0.0, max_v)
+	#scroll_container.set_h_scroll(int(h))
+	#scroll_container.set_v_scroll(int(v))
+
+
+
+#@tool
+#extends PanelContainer
+#
+#@onready var scroll_container: ScrollContainer = $ScrollContainer
+#
+#var pressed := false
+#var scroll_speed := Vector2()
+#
+#func _draw() -> void:
+	#draw_line(Vector2(75, 0), Vector2(75, size.y), Color(\"1e293b\"), 4)
+	#pass
+#
+#func _gui_input(event: InputEvent) -> void:
+	#if event is InputEventMouseMotion:
+		#var motion := event as InputEventMouseMotion
+		#
+		#if pressed and scroll_speed.is_zero_approx():
+			#if motion.relative.is_zero_approx():
+				#scroll_speed.x = 0
+				#scroll_speed.y = 0
+			#elif motion.relative.x > motion.relative.y:
+				#scroll_speed.x = motion.relative.x
+				#scroll_speed.y = 0
+			#else:
+				#scroll_speed.x = 0
+				#scroll_speed.y = motion.relative.y
+	#elif event is InputEventMouseButton:
+		#pressed = event.pressed
+
+
+
+
+
+#@tool
+#extends PanelContainer
+#
+#const line_clr := Color(\"27272a\")
+#const time_clr := Color(\"9c9cac\")
+#const start_time := 8.0
+#const end_time := 20.0
+#const line_spacing := 160.0
+#const offset := 30.0
+#const item_margin_x := 20.0
+#const item_margin_y := 10.0
+#
+#var item_style := StyleBoxFlat.new()
+#
+#func _init() -> void:
+	#item_style.corner_detail = 20
+	#item_style.set_corner_radius_all(20)
+	#item_style.bg_color = Color.ORANGE_RED
+#
+#func _draw() -> void:
+	#for i: int in Vector2(start_time, end_time + 1):
+		#draw_line(Vector2(0, (i - start_time) * line_spacing), Vector2(size.x, (i - start_time) * line_spacing), line_clr, 2)
+		#draw_string(get_theme_default_font(), Vector2(10, (i - start_time) * line_spacing + offset), \"%02d:00\" % [i], HORIZONTAL_ALIGNMENT_LEFT, -1, 24, time_clr)
+	#draw_line(Vector2(line_spacing, 0), Vector2(line_spacing, size.y), line_clr, 2)
+	#
+	#_draw_item(9, 11, \"Test1\")
+	#_draw_item(11, 12, \"Test1\")
+#
+#func _draw_item(from: float, to: float, lecture_text: String) -> void:
+	#const item_padding := 20
+	#const font_size := 40
+	#const align := HORIZONTAL_ALIGNMENT_LEFT
+	#var font: Font = get_theme_default_font()
+	#var item_position := Vector2(line_spacing + item_margin_x, (from - start_time) * line_spacing + item_margin_y)
+	#var item_size := Vector2(size.x - line_spacing - item_margin_x * 2, (to-from) * line_spacing - item_margin_y * 2)
+	#var content_margin := line_spacing + item_margin_x + item_padding
+	#var max_size := size.x - line_spacing - item_margin_x * 2 - item_padding * 2
+	#var text_size := font.get_string_size(lecture_text, align, -1, font_size)
+	#
+	#draw_style_box(item_style, Rect2(item_position, item_size))
+	#if text_size.x > max_size:
+		#text_size.x = max_size - font.get_string_size(\"...\", align, -1, font_size).x
+		#draw_string(
+			#font, 
+			#Vector2(content_margin + text_size.x, item_position.y + font.get_height(font_size)), 
+			#\"...\", 
+			#align, 
+			#-1, 
+			#font_size, 
+			#Color.WHITE
+		#)
+	#draw_string(
+		#font, 
+		#Vector2(content_margin, item_position.y + font.get_height(font_size)), 
+		#lecture_text, 
+		#HORIZONTAL_ALIGNMENT_LEFT, 
+		#text_size.x, 
+		#font_size, 
+		#Color.WHITE
+	#)
+	#pass
+"
+
+[sub_resource type="GDScript" id="GDScript_i2mmo"]
+script/source = "@tool
+extends HBoxContainer
+
+
+func _ready() -> void:
+	get_parent_control().resized.connect(func () -> void:
+		custom_minimum_size.x = 3 * get_parent_control().size.x
+		(get_parent() as ScrollContainer).scroll_horizontal = int(get_parent_control().size.x)
 	)
+"
+
+[sub_resource type="GDScript" id="GDScript_iedju"]
+script/source = "extends HBoxContainer
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
 	pass
 "
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i2mmo"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.16862746, 0.42352942, 0.93333334, 1)
+corner_radius_top_left = 50
+corner_radius_top_right = 50
+corner_radius_bottom_right = 50
+corner_radius_bottom_left = 50
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_56g1m"]
+font_size = 34
+font_color = Color(0.16862746, 0.42352942, 0.93333334, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_ub670"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 0.5647059)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lidgl"]
+content_margin_left = 30.0
+content_margin_top = 30.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.8417974, 6.256998e-07, 0.43208095, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_mf8vr"]
+font_size = 40
+font_color = Color(0.3764706, 0.64705884, 0.98039216, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_lidgl"]
+font_size = 35
+font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_kc71a"]
+font_size = 30
+font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mf8vr"]
+content_margin_left = 20.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0.101960786, 0.16078432, 0.27058825, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_iedju"]
+font_size = 30
+font_color = Color(0.16862746, 0.42352942, 0.93333334, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iv85p"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 50
+corner_radius_top_right = 50
+corner_radius_bottom_right = 50
+corner_radius_bottom_left = 50
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_0f1md"]
+font_size = 34
+font_color = Color(0.8509804, 0, 0.39607844, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_x03ua"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ub670"]
+content_margin_left = 30.0
+content_margin_top = 10.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_56g1m"]
+content_margin_bottom = 5.0
+bg_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 17
+corner_radius_top_right = 17
+corner_detail = 20
+expand_margin_left = 27.0
+expand_margin_top = 6.0
+expand_margin_right = 27.0
+
+[sub_resource type="LabelSettings" id="LabelSettings_iv85p"]
+font_size = 40
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_c5kaa"]
+font_size = 40
+font_color = Color(0.8509804, 0, 0.39607844, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_jf35j"]
+font_size = 35
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_m2vrw"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ytsd"]
+content_margin_left = 20.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_0xukj"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_7vw6b"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0f1md"]
+content_margin_left = 30.0
+content_margin_top = 10.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_kituo"]
+font_size = 35
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_k0v6k"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_iqtqh"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iedju"]
+content_margin_left = 30.0
+content_margin_top = 30.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.16862746, 0.42352942, 0.93333334, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_cr11w"]
+font_size = 35
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_tx18j"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yj3bh"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.8509804, 0, 0.39607844, 0.5647059)
+corner_radius_top_left = 50
+corner_radius_top_right = 50
+corner_radius_bottom_right = 50
+corner_radius_bottom_left = 50
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_rt867"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 0.5647059)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dxww6"]
+content_margin_left = 30.0
+content_margin_top = 10.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_x41mx"]
+content_margin_bottom = 5.0
+bg_color = Color(0.8509804, 0, 0.39607844, 0.5647059)
+corner_radius_top_left = 17
+corner_radius_top_right = 17
+corner_detail = 20
+expand_margin_left = 27.0
+expand_margin_top = 6.0
+expand_margin_right = 27.0
+
+[sub_resource type="LabelSettings" id="LabelSettings_4di7h"]
+font_size = 40
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_1ytsd"]
+font_size = 35
+font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_p4ned"]
+font_size = 30
+font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cr11w"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.16862746, 0.42352942, 0.93333334, 0.5647059)
+corner_radius_top_left = 50
+corner_radius_top_right = 50
+corner_radius_bottom_right = 50
+corner_radius_bottom_left = 50
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_r7pw2"]
+font_size = 34
+font_color = Color(0.16862746, 0.42352942, 0.93333334, 0.5647059)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_c5kaa"]
+content_margin_left = 30.0
+content_margin_top = 30.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_uq2hk"]
+font_size = 40
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kc71a"]
+content_margin_left = 30.0
+content_margin_top = 30.0
+content_margin_right = 30.0
+content_margin_bottom = 30.0
+bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0, 0.555494, 0.32778722, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
 
 [node name="MainView" type="PanelContainer"]
 anchors_preset = 15
@@ -73,5 +917,2911 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
+theme = SubResource("Theme_mf8vr")
 theme_override_styles/panel = SubResource("StyleBoxFlat_8iklj")
 script = SubResource("GDScript_8iklj")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+scroll_horizontal = 1080
+horizontal_scroll_mode = 3
+vertical_scroll_mode = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer"]
+custom_minimum_size = Vector2(3240, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+script = SubResource("GDScript_i2mmo")
+
+[node name="PrevoiusDayView" type="MarginContainer" parent="ScrollContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/margin_left = 31
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="CurrentDayView" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 40
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer5" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer6" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer7" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer8" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer9" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer10" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lidgl")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/PrevoiusDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CurrentDayView" type="MarginContainer" parent="ScrollContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/margin_left = 31
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="CurrentDayView" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 40
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iv85p")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_0f1md")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_x03ua")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ub670")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_56g1m")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_c5kaa")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_jf35j")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_m2vrw")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
+text = "45m left"
+label_settings = SubResource("LabelSettings_0xukj")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_7vw6b")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_0f1md")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_56g1m")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_kituo")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_k0v6k")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_iqtqh")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_cr11w")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_tx18j")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer15" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_yj3bh")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_0f1md")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_rt867")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dxww6")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_x41mx")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_4di7h")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_1ytsd")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_p4ned")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2/HBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
+text = "45m left"
+label_settings = SubResource("LabelSettings_0xukj")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_cr11w")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_r7pw2")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_c5kaa")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_uq2hk")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer5" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer6" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer7" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer8" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer9" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer10" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer11" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer12" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer13" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer14" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NextDayView" type="MarginContainer" parent="ScrollContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/margin_left = 31
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="CurrentDayView" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 40
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer5" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer6" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer7" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer8" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer9" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer10" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_56g1m")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_ub670")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_mf8vr")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_lidgl")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_kc71a")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+text = "45m left"
+label_settings = SubResource("LabelSettings_iedju")
+horizontal_alignment = 1
+vertical_alignment = 1
