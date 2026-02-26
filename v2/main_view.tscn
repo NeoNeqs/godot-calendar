@@ -1,4 +1,4 @@
-[gd_scene load_steps=49 format=3 uid="uid://ht0074yl453k"]
+[gd_scene load_steps=55 format=3 uid="uid://ht0074yl453k"]
 
 [ext_resource type="Texture2D" uid="uid://crhn3f6mobf6j" path="res://assets/record_voice_over_30dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="1_i2mmo"]
 [ext_resource type="FontFile" uid="uid://bxfd0d5rt10kt" path="res://assets/Lato/Lato-Bold.ttf" id="2_iedju"]
@@ -599,14 +599,23 @@ func _ready() -> void:
 [sub_resource type="GDScript" id="GDScript_iedju"]
 script/source = "extends HBoxContainer
 
+@export var icon_panel: PanelContainer
+@export var icon: TextureRect
+@export var start_time: Label
+@export var end_time: Label
 
-# Called when the node enters the scene tree for the first time.
-func _ready() -> void:
-	pass # Replace with function body.
+@export var item_panel: PanelContainer
+@export var info: Label
+@export var lecture: Label
+@export var room: Label
 
+@export var details: Label
+@export var time_left: Label
 
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
+func make_important() -> void:
+	pass
+
+func make_disabled() -> void:
 	pass
 "
 
@@ -657,7 +666,7 @@ font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
 
 [sub_resource type="LabelSettings" id="LabelSettings_kc71a"]
 font_size = 30
-font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mf8vr"]
 content_margin_left = 20.0
@@ -718,9 +727,9 @@ bg_color = Color(0.8509804, 0, 0.39607844, 1)
 corner_radius_top_left = 17
 corner_radius_top_right = 17
 corner_detail = 20
-expand_margin_left = 27.0
-expand_margin_top = 6.0
-expand_margin_right = 27.0
+expand_margin_left = 30.0
+expand_margin_top = 9.0
+expand_margin_right = 30.0
 
 [sub_resource type="LabelSettings" id="LabelSettings_iv85p"]
 font_size = 40
@@ -824,9 +833,13 @@ corner_radius_bottom_right = 50
 corner_radius_bottom_left = 50
 corner_detail = 20
 
-[sub_resource type="LabelSettings" id="LabelSettings_rt867"]
+[sub_resource type="LabelSettings" id="LabelSettings_yj3bh"]
+font_size = 34
+font_color = Color(0.8509804, 0, 0.39607844, 0.5647059)
+
+[sub_resource type="LabelSettings" id="LabelSettings_dxww6"]
 font_size = 30
-font_color = Color(0.7764706, 0.8156863, 0.8392157, 0.5647059)
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dxww6"]
 content_margin_left = 30.0
@@ -846,13 +859,25 @@ bg_color = Color(0.8509804, 0, 0.39607844, 0.5647059)
 corner_radius_top_left = 17
 corner_radius_top_right = 17
 corner_detail = 20
-expand_margin_left = 27.0
-expand_margin_top = 6.0
-expand_margin_right = 27.0
+expand_margin_left = 30.0
+expand_margin_top = 9.0
+expand_margin_right = 30.0
 
 [sub_resource type="LabelSettings" id="LabelSettings_4di7h"]
 font_size = 40
 font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_x41mx"]
+font_size = 35
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_aes7k"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_rt867"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 0.5647059)
 
 [sub_resource type="LabelSettings" id="LabelSettings_1ytsd"]
 font_size = 35
@@ -878,6 +903,10 @@ corner_detail = 20
 font_size = 34
 font_color = Color(0.16862746, 0.42352942, 0.93333334, 0.5647059)
 
+[sub_resource type="LabelSettings" id="LabelSettings_266ay"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_c5kaa"]
 content_margin_left = 30.0
 content_margin_top = 30.0
@@ -894,22 +923,13 @@ corner_detail = 20
 font_size = 40
 font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kc71a"]
-content_margin_left = 30.0
-content_margin_top = 30.0
-content_margin_right = 30.0
-content_margin_bottom = 30.0
-bg_color = Color(0.09803922, 0.13333334, 0.2, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0, 0.555494, 0.32778722, 1)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
-corner_detail = 20
+[sub_resource type="LabelSettings" id="LabelSettings_5vg7n"]
+font_size = 35
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_o41s1"]
+font_size = 30
+font_color = Color(0.39607844, 0.44313726, 0.5137255, 1)
 
 [node name="MainView" type="PanelContainer"]
 anchors_preset = 15
@@ -1778,44 +1798,44 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="IconPanel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_iv85p")
 
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer/Panel"]
+[node name="Icon" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer/IconPanel"]
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("1_i2mmo")
 
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="StartTime" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
 label_settings = SubResource("LabelSettings_0f1md")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="EndTime" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
 label_settings = SubResource("LabelSettings_x03ua")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer"]
+[node name="ItemPanel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_ub670")
 
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_56g1m")
 text = "Przeniesienie zajęć"
@@ -1823,30 +1843,30 @@ label_settings = SubResource("LabelSettings_iv85p")
 horizontal_alignment = 1
 text_overrun_behavior = 3
 
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="Lecture" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
 label_settings = SubResource("LabelSettings_c5kaa")
 text_overrun_behavior = 3
 
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="Room" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
 label_settings = SubResource("LabelSettings_jf35j")
 text_overrun_behavior = 3
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="Detail" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
 label_settings = SubResource("LabelSettings_m2vrw")
 text_overrun_behavior = 3
 
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
@@ -1855,11 +1875,8 @@ label_settings = SubResource("LabelSettings_0xukj")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer/PanelContainer"]
-layout_mode = 2
-size_flags_vertical = 1
-
 [node name="HBoxContainer2" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+visible = false
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 30
@@ -2052,14 +2069,14 @@ texture = ExtResource("1_i2mmo")
 [node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = SubResource("LabelSettings_0f1md")
+label_settings = SubResource("LabelSettings_yj3bh")
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_rt867")
+label_settings = SubResource("LabelSettings_dxww6")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -2092,7 +2109,7 @@ text_overrun_behavior = 3
 [node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_1ytsd")
+label_settings = SubResource("LabelSettings_x41mx")
 text_overrun_behavior = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
@@ -2103,7 +2120,7 @@ mouse_filter = 2
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_p4ned")
+label_settings = SubResource("LabelSettings_aes7k")
 text_overrun_behavior = 3
 
 [node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2/HBoxContainer"]
@@ -2117,6 +2134,99 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer15/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="HBoxContainer16" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_iedju")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_yj3bh")
+
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/VBoxContainer/Panel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_i2mmo")
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = SubResource("LabelSettings_yj3bh")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = SubResource("LabelSettings_rt867")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dxww6")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_x41mx")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = SubResource("LabelSettings_4di7h")
+text_overrun_behavior = 3
+
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = SubResource("LabelSettings_1ytsd")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = SubResource("LabelSettings_p4ned")
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer/VBoxContainer2/HBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
+text = "45m left"
+label_settings = SubResource("LabelSettings_0xukj")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer16/PanelContainer"]
 layout_mode = 2
 size_flags_vertical = 1
 
@@ -2152,7 +2262,7 @@ vertical_alignment = 1
 [node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
+label_settings = SubResource("LabelSettings_266ay")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -2177,7 +2287,7 @@ text_overrun_behavior = 3
 [node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
+label_settings = SubResource("LabelSettings_5vg7n")
 text_overrun_behavior = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
@@ -2202,7 +2312,6 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="HBoxContainer5" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 30
@@ -2217,7 +2326,7 @@ theme_override_constants/separation = 20
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+theme_override_styles/panel = SubResource("StyleBoxFlat_cr11w")
 
 [node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer/Panel"]
 layout_mode = 2
@@ -2227,7 +2336,7 @@ texture = ExtResource("1_i2mmo")
 [node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
+label_settings = SubResource("LabelSettings_r7pw2")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -2242,7 +2351,7 @@ vertical_alignment = 1
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
+theme_override_styles/panel = SubResource("StyleBoxFlat_c5kaa")
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer"]
 layout_mode = 2
@@ -2253,7 +2362,7 @@ theme_override_constants/separation = 20
 [node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
+label_settings = SubResource("LabelSettings_uq2hk")
 text_overrun_behavior = 3
 
 [node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
@@ -2270,739 +2379,11 @@ mouse_filter = 2
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
+label_settings = SubResource("LabelSettings_o41s1")
 text_overrun_behavior = 3
 
 [node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer6" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
 visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer7" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer8" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer9" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer10" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer11" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer11/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer12" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer12/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer13" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer13/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer14" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView"]
-visible = false
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayView/HBoxContainer14/PanelContainer/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
@@ -3037,76 +2418,85 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="IconPanel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+theme_override_styles/panel = SubResource("StyleBoxFlat_iv85p")
 
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer/Panel"]
+[node name="Icon" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer/IconPanel"]
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("1_i2mmo")
 
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="StartTime" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
+label_settings = SubResource("LabelSettings_0f1md")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
+[node name="EndTime" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
+label_settings = SubResource("LabelSettings_x03ua")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer"]
+[node name="ItemPanel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+theme_override_styles/panel = SubResource("StyleBoxFlat_ub670")
 
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer"]
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_56g1m")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="Lecture" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
+label_settings = SubResource("LabelSettings_c5kaa")
 text_overrun_behavior = 3
 
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="Room" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
+label_settings = SubResource("LabelSettings_jf35j")
 text_overrun_behavior = 3
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="Detail" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
+label_settings = SubResource("LabelSettings_m2vrw")
 text_overrun_behavior = 3
 
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer/ItemPanel/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
 text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
+label_settings = SubResource("LabelSettings_0xukj")
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+visible = false
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 30
@@ -3138,7 +2528,7 @@ vertical_alignment = 1
 [node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
+label_settings = SubResource("LabelSettings_7vw6b")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -3146,13 +2536,21 @@ vertical_alignment = 1
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+theme_override_styles/panel = SubResource("StyleBoxFlat_0f1md")
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_56g1m")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
 
 [node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
 layout_mode = 2
@@ -3163,7 +2561,7 @@ text_overrun_behavior = 3
 [node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
+label_settings = SubResource("LabelSettings_kituo")
 text_overrun_behavior = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2"]
@@ -3174,90 +2572,10 @@ mouse_filter = 2
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
+label_settings = SubResource("LabelSettings_k0v6k")
 text_overrun_behavior = 3
 
 [node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer2/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer3" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
@@ -3298,7 +2616,7 @@ vertical_alignment = 1
 [node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
+label_settings = SubResource("LabelSettings_iqtqh")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -3306,7 +2624,7 @@ vertical_alignment = 1
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+theme_override_styles/panel = SubResource("StyleBoxFlat_iedju")
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer"]
 layout_mode = 2
@@ -3323,7 +2641,7 @@ text_overrun_behavior = 3
 [node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
+label_settings = SubResource("LabelSettings_cr11w")
 text_overrun_behavior = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2"]
@@ -3334,7 +2652,7 @@ mouse_filter = 2
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
+label_settings = SubResource("LabelSettings_tx18j")
 text_overrun_behavior = 3
 
 [node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer4/PanelContainer/VBoxContainer2/HBoxContainer"]
@@ -3346,478 +2664,172 @@ label_settings = SubResource("LabelSettings_iedju")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HBoxContainer5" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+[node name="HBoxContainer15" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 30
 script = SubResource("GDScript_iedju")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+theme_override_styles/panel = SubResource("StyleBoxFlat_yj3bh")
 
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer/Panel"]
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/VBoxContainer/Panel"]
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("1_i2mmo")
 
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
+label_settings = SubResource("LabelSettings_yj3bh")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/VBoxContainer"]
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
+label_settings = SubResource("LabelSettings_rt867")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5"]
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+theme_override_styles/panel = SubResource("StyleBoxFlat_dxww6")
 
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer"]
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+[node name="Info" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_x41mx")
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
+label_settings = SubResource("LabelSettings_4di7h")
 text_overrun_behavior = 3
 
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
+label_settings = SubResource("LabelSettings_1ytsd")
 text_overrun_behavior = 3
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
+label_settings = SubResource("LabelSettings_p4ned")
 text_overrun_behavior = 3
 
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer5/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer/VBoxContainer2/HBoxContainer"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
 text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
+label_settings = SubResource("LabelSettings_0xukj")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HBoxContainer6" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer15/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 30
 script = SubResource("GDScript_iedju")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
+theme_override_styles/panel = SubResource("StyleBoxFlat_cr11w")
 
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer/Panel"]
+[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer/Panel"]
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("1_i2mmo")
 
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
+label_settings = SubResource("LabelSettings_r7pw2")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/VBoxContainer"]
+[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/VBoxContainer"]
 layout_mode = 2
 text = "09:30"
 label_settings = SubResource("LabelSettings_ub670")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6"]
+[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
+theme_override_styles/panel = SubResource("StyleBoxFlat_c5kaa")
 
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer"]
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 20
 
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
+label_settings = SubResource("LabelSettings_uq2hk")
 text_overrun_behavior = 3
 
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 text = "Paw.A 201 lab. Win10, Office21"
 label_settings = SubResource("LabelSettings_lidgl")
 text_overrun_behavior = 3
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Wykład  •  Prof. Mark Thompson"
 label_settings = SubResource("LabelSettings_kc71a")
 text_overrun_behavior = 3
 
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer6/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer7" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer7/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer8" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer8/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer9" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer9/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
-text = "45m left"
-label_settings = SubResource("LabelSettings_iedju")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HBoxContainer10" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 30
-script = SubResource("GDScript_iedju")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="Panel" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-custom_minimum_size = Vector2(60, 60)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_i2mmo")
-
-[node name="TextureRect" type="TextureRect" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer/Panel"]
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("1_i2mmo")
-
-[node name="Label" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-layout_mode = 2
-text = "08:00"
-label_settings = SubResource("LabelSettings_56g1m")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Label2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/VBoxContainer"]
-layout_mode = 2
-text = "09:30"
-label_settings = SubResource("LabelSettings_ub670")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_kc71a")
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-theme_override_constants/separation = 20
-
-[node name="RichTextLabel" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Wprowadzenie do uczenia maszynowego"
-label_settings = SubResource("LabelSettings_mf8vr")
-text_overrun_behavior = 3
-
-[node name="RichTextLabel2" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-text = "Paw.A 201 lab. Win10, Office21"
-label_settings = SubResource("LabelSettings_lidgl")
-text_overrun_behavior = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="RichTextLabel3" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Wykład  •  Prof. Mark Thompson"
-label_settings = SubResource("LabelSettings_kc71a")
-text_overrun_behavior = 3
-
-[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer10/PanelContainer/VBoxContainer2/HBoxContainer"]
+[node name="TimeLeft" type="Label" parent="ScrollContainer/HBoxContainer/NextDayView/CurrentDayView/HBoxContainer3/PanelContainer/VBoxContainer2/HBoxContainer"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_styles/normal = SubResource("StyleBoxFlat_mf8vr")
