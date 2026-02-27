@@ -1,0 +1,239 @@
+[gd_scene load_steps=13 format=3 uid="uid://dr4yqve67a4pf"]
+
+[ext_resource type="Texture2D" uid="uid://crhn3f6mobf6j" path="res://assets/record_voice_over_30dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="1_bjewl"]
+[ext_resource type="StyleBox" uid="uid://c6jxnlg4boqwg" path="res://v2/styles/item/now/stylebox_icon_panel.tres" id="1_hnkg5"]
+[ext_resource type="LabelSettings" uid="uid://ckt3mf5ixnjlt" path="res://v2/styles/item/now/label_start_time.tres" id="3_b3hy4"]
+[ext_resource type="LabelSettings" uid="uid://6par1rrqr6w3" path="res://v2/styles/item/now/label_end_time.tres" id="4_hnkg5"]
+[ext_resource type="StyleBox" uid="uid://ddjx6122v8ere" path="res://v2/styles/item/stylebox_panel.tres" id="5_t0d6e"]
+[ext_resource type="LabelSettings" uid="uid://8n8pnxwtn1pw" path="res://v2/styles/item/now/label_lecture.tres" id="7_b3hy4"]
+[ext_resource type="LabelSettings" uid="uid://dx4jti36j8t0" path="res://v2/styles/item/now/label_room.tres" id="7_hnkg5"]
+[ext_resource type="LabelSettings" uid="uid://bp7ve6q3oisnn" path="res://v2/styles/item/now/label_details.tres" id="8_b3hy4"]
+
+[sub_resource type="GDScript" id="GDScript_bjewl"]
+script/source = "@tool
+extends HBoxContainer
+
+@export var icon_panel: PanelContainer
+@export var icon: TextureRect
+@export var start_time: Label
+@export var end_time: Label
+
+@export var item_panel: PanelContainer
+@export var info: Label
+@export var lecture: Label
+@export var room: Label
+
+@export var details: Label
+@export var time_left: Label
+
+@export_enum(\"past\", \"now\", \"future\") var state: String = \"past\":
+	set(v):
+		state = v
+		if is_node_ready():
+			update.call_deferred()
+
+@export var has_info: bool = false:
+	set(v):
+		has_info = v
+		if is_node_ready():
+			update.call_deferred()
+
+var ITEM_PANEL_NORMAL: StyleBoxFlat = load(\"uid://b82uk45b7mhg6\")
+var ITEM_START_TIME_PAST: LabelSettings = load(\"uid://c40l5qmgnf6t2\")
+var ITEM_END_LABEL_PAST: LabelSettings = load(\"uid://dti5gcu5tgkq5\")
+var ITEM_PANEL: StyleBoxFlat = load(\"uid://ddjx6122v8ere\")
+var ITEM_LECTURE_PAST: LabelSettings = load(\"uid://jir4ekfwhoyq\")
+var ITEM_ROOM_PAST: LabelSettings = load(\"uid://hmg4ipc8m3rj\")
+var ITEM_DETAILS_PAST: LabelSettings = load(\"uid://bvcq0m50skjwu\")
+var ITEM_INFO_PAST: StyleBoxFlat = load(\"uid://koawqbd0ljms\")
+var ITEM_PANEL_INFO: StyleBoxFlat = load(\"uid://t2udoc8b3o62\")
+var ITEM_ICON_PANEL_NOW_INFO: StyleBoxFlat = load(\"uid://cn1n57i4jx3q3\")
+var ITEM_ICON_PANEL_NOW: StyleBoxFlat = load(\"uid://c6jxnlg4boqwg\")
+var ITEM_START_TIME_NOW: LabelSettings = load(\"uid://ckt3mf5ixnjlt\")
+var ITEM_START_TIME_NOW_INFO: LabelSettings = load(\"uid://c6ufqhvbrm6qk\")
+var ITEM_END_TIME_NOW: LabelSettings = load(\"uid://6par1rrqr6w3\")
+var ITEM_INFO_NOW: StyleBoxFlat = load(\"uid://dsm5fact0yxtv\")
+var ITEM_LECTURE_NOW_INFO: LabelSettings = load(\"uid://csylxek74ls62\")
+var ITEM_LECTURE_NOW: LabelSettings = load(\"uid://8n8pnxwtn1pw\")
+var ITEM_ROOM_NOW: LabelSettings = load(\"uid://dx4jti36j8t0\")
+var ITEM_DETAILS_NOW: LabelSettings = load(\"uid://bp7ve6q3oisnn\")
+
+# item: ScheduleItem
+func update() -> void:
+	match state:
+		\"past\":
+			set_past()
+		\"now\":
+			set_now()
+		\"future\":
+			set_future()
+		_:
+			set_now()
+	
+	if has_info:
+		info.show()
+		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL_INFO)
+	else:
+		info.hide()
+		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL)
+
+
+func set_past() -> void:
+	if has_info:
+		info.add_theme_stylebox_override(\"normal\", ITEM_INFO_PAST)
+	else:
+		info.remove_theme_stylebox_override(\"normal\")
+	icon_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL_NORMAL)
+	start_time.label_settings = ITEM_START_TIME_PAST
+	end_time.label_settings = ITEM_END_LABEL_PAST
+	lecture.label_settings = ITEM_LECTURE_PAST
+	room.label_settings = ITEM_ROOM_PAST
+	details.label_settings = ITEM_DETAILS_PAST
+
+func set_now() -> void:
+	if has_info:
+		info.add_theme_stylebox_override(\"normal\", ITEM_INFO_NOW)
+		icon_panel.add_theme_stylebox_override(\"panel\", ITEM_ICON_PANEL_NOW_INFO)
+		start_time.label_settings = ITEM_START_TIME_NOW_INFO
+		lecture.label_settings = ITEM_LECTURE_NOW_INFO
+	else:
+		icon_panel.add_theme_stylebox_override(\"panel\", ITEM_ICON_PANEL_NOW)
+		start_time.label_settings = ITEM_START_TIME_NOW
+		lecture.label_settings = ITEM_LECTURE_NOW
+	end_time.label_settings = ITEM_END_TIME_NOW
+	room.label_settings = ITEM_ROOM_NOW
+	details.label_settings = ITEM_DETAILS_NOW
+
+
+func set_future() -> void:
+	pass
+"
+
+[sub_resource type="LabelSettings" id="LabelSettings_iv85p"]
+font_size = 40
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ytsd"]
+content_margin_left = 20.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0.8509804, 0, 0.39607844, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+corner_detail = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_0xukj"]
+font_size = 30
+font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
+
+[node name="Item" type="HBoxContainer" node_paths=PackedStringArray("icon_panel", "icon", "start_time", "end_time", "item_panel", "info", "lecture", "room", "details", "time_left")]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 30
+script = SubResource("GDScript_bjewl")
+icon_panel = NodePath("VBoxContainer/IconPanel")
+icon = NodePath("VBoxContainer/IconPanel/TextureRect")
+start_time = NodePath("VBoxContainer/StartTime")
+end_time = NodePath("VBoxContainer/EndTime")
+item_panel = NodePath("ItemPanel")
+info = NodePath("ItemPanel/VBoxContainer2/Info")
+lecture = NodePath("ItemPanel/VBoxContainer2/Lecture")
+room = NodePath("ItemPanel/VBoxContainer2/Room")
+details = NodePath("ItemPanel/VBoxContainer2/HBoxContainer/Details")
+time_left = NodePath("ItemPanel/VBoxContainer2/HBoxContainer/TimeLeft")
+state = "now"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="IconPanel" type="PanelContainer" parent="VBoxContainer"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("1_hnkg5")
+
+[node name="TextureRect" type="TextureRect" parent="VBoxContainer/IconPanel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("1_bjewl")
+
+[node name="StartTime" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "08:00"
+label_settings = ExtResource("3_b3hy4")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EndTime" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "09:30"
+label_settings = ExtResource("4_hnkg5")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ItemPanel" type="PanelContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("5_t0d6e")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="ItemPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Info" type="Label" parent="ItemPanel/VBoxContainer2"]
+visible = false
+layout_mode = 2
+text = "Przeniesienie zajęć"
+label_settings = SubResource("LabelSettings_iv85p")
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="Lecture" type="Label" parent="ItemPanel/VBoxContainer2"]
+layout_mode = 2
+text = "Wprowadzenie do uczenia maszynowego"
+label_settings = ExtResource("7_b3hy4")
+text_overrun_behavior = 3
+
+[node name="Room" type="Label" parent="ItemPanel/VBoxContainer2"]
+layout_mode = 2
+text = "Paw.A 201 lab. Win10, Office21"
+label_settings = ExtResource("7_hnkg5")
+text_overrun_behavior = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ItemPanel/VBoxContainer2"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Details" type="Label" parent="ItemPanel/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wykład  •  Prof. Mark Thompson"
+label_settings = ExtResource("8_b3hy4")
+vertical_alignment = 1
+text_overrun_behavior = 3
+
+[node name="TimeLeft" type="Label" parent="ItemPanel/VBoxContainer2/HBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
+text = "45m left"
+label_settings = SubResource("LabelSettings_0xukj")
+horizontal_alignment = 1
+vertical_alignment = 1
