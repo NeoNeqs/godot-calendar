@@ -12,7 +12,7 @@ func _init() -> void:
 	row_regex.compile("<tr.*?>([\\s\\S]*?)</tr>")
 	cell_regex.compile("<t[dh].*?>([\\s\\S]*?)</t[dh]>")
 	strip_tags_regex.compile("<[^>]*>")
-	time_regex.compile("(..)\\s(\\d\\d:\\d\\d\\s-\\s\\d\\d:\\d\\d)\\s")
+	time_regex.compile("(..)\\s(\\d\\d):(\\d\\d)\\s-\\s(\\d\\d):(\\d\\d)\\s")
 
 func parse(file_path: String) -> Schedule:
 	var sch := Schedule.new()
@@ -43,7 +43,6 @@ func parse(file_path: String) -> Schedule:
 				var time_match := time_regex.search(time)
 				if time_match:
 					schedule_item.weekday = time_match.get_string(1)
-					schedule_item.timeframe = time_match.get_string(2)
 				
 					var date: String = row[0] if row.size() > 0 else ""
 					var date_parts := date.split('-')
@@ -51,8 +50,11 @@ func parse(file_path: String) -> Schedule:
 					schedule_item.month = int(date_parts[1])
 					schedule_item.day = int(date_parts[2])
 					
-					# Convert row array to dictionary with named columns
-					#schedule_item.time = row[1] if row.size() > 1 else ""
+					schedule_item.start_time_hours = int(time_match.get_string(2))
+					schedule_item.start_time_minutes = int(time_match.get_string(3))
+					schedule_item.end_time_hours = int(time_match.get_string(4))
+					schedule_item.end_time_minutes = int(time_match.get_string(5))
+					
 					schedule_item.name = row[2] if row.size() > 2 else ""
 					schedule_item.type = row[3] if row.size() > 3 else ""
 					schedule_item.lecturer = row[4] if row.size() > 4 else ""

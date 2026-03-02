@@ -5,7 +5,11 @@ extends Resource
 #@export var time: String
 @export var weekday: String
 # TODO: split further
-@export var timeframe: String
+#@export var timeframe: String
+@export var start_time_hours: int
+@export var start_time_minutes: int
+@export var end_time_hours: int
+@export var end_time_minutes: int
 
 #@export var date: String
 @export var year: int

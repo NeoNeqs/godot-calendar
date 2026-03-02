@@ -2,7 +2,9 @@
 class_name ScheduleFetcher
 extends RefCounted
 
-signal done()
+#signal done()
+signal success(file_path: String)
+signal failed(code: int)
 
 const file := "user://schedule.html"
 
@@ -10,10 +12,10 @@ func fetch() -> HTTPRequest:
 	var _http := HTTPRequest.new()
 	_http.request_completed.connect(func _request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 		if response_code == 200:
-			done.emit(file)
+			success.emit(file)
 		else:
-			print(response_code)
-			print(body.get_string_from_ascii())
+			# TODO: show toast somewhere and try to extract error from body ?
+			failed.emit(response_code)
 	)
 	_http.use_threads = true
 	_http.download_file = file

@@ -1,13 +1,16 @@
-[gd_scene load_steps=13 format=3 uid="uid://dr4yqve67a4pf"]
+[gd_scene load_steps=14 format=3 uid="uid://dr4yqve67a4pf"]
 
+[ext_resource type="StyleBox" uid="uid://b82uk45b7mhg6" path="res://v2/styles/item/past/stylebox_icon_panel.tres" id="1_28nsk"]
 [ext_resource type="Texture2D" uid="uid://crhn3f6mobf6j" path="res://assets/record_voice_over_30dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="1_bjewl"]
-[ext_resource type="StyleBox" uid="uid://c6jxnlg4boqwg" path="res://v2/styles/item/now/stylebox_icon_panel.tres" id="1_hnkg5"]
-[ext_resource type="LabelSettings" uid="uid://ckt3mf5ixnjlt" path="res://v2/styles/item/now/label_start_time.tres" id="3_b3hy4"]
+[ext_resource type="LabelSettings" uid="uid://xgjcishk385f" path="res://v2/styles/item/future/label_start_time.tres" id="3_28nsk"]
 [ext_resource type="LabelSettings" uid="uid://6par1rrqr6w3" path="res://v2/styles/item/now/label_end_time.tres" id="4_hnkg5"]
 [ext_resource type="StyleBox" uid="uid://ddjx6122v8ere" path="res://v2/styles/item/stylebox_panel.tres" id="5_t0d6e"]
-[ext_resource type="LabelSettings" uid="uid://8n8pnxwtn1pw" path="res://v2/styles/item/now/label_lecture.tres" id="7_b3hy4"]
+[ext_resource type="StyleBox" uid="uid://koawqbd0ljms" path="res://v2/styles/item/past/stylebox_info.tres" id="6_56b2h"]
+[ext_resource type="LabelSettings" uid="uid://b4d0lpl83tyxx" path="res://v2/styles/item/future/label_lecture.tres" id="7_28nsk"]
 [ext_resource type="LabelSettings" uid="uid://dx4jti36j8t0" path="res://v2/styles/item/now/label_room.tres" id="7_hnkg5"]
 [ext_resource type="LabelSettings" uid="uid://bp7ve6q3oisnn" path="res://v2/styles/item/now/label_details.tres" id="8_b3hy4"]
+[ext_resource type="StyleBox" uid="uid://ds0ng0elbydxk" path="res://v2/styles/item/now/stylebox_time_left.tres" id="10_28nsk"]
+[ext_resource type="LabelSettings" uid="uid://byo7vv4ctes8i" path="res://v2/styles/item/now/label_time_left.tres" id="11_05aq4"]
 
 [sub_resource type="GDScript" id="GDScript_bjewl"]
 script/source = "@tool
@@ -30,36 +33,92 @@ extends HBoxContainer
 	set(v):
 		state = v
 		if is_node_ready():
-			update.call_deferred()
+			update2.call_deferred()
 
 @export var has_info: bool = false:
 	set(v):
 		has_info = v
 		if is_node_ready():
-			update.call_deferred()
+			update2.call_deferred()
 
-var ITEM_PANEL_NORMAL: StyleBoxFlat = load(\"uid://b82uk45b7mhg6\")
-var ITEM_START_TIME_PAST: LabelSettings = load(\"uid://c40l5qmgnf6t2\")
-var ITEM_END_LABEL_PAST: LabelSettings = load(\"uid://dti5gcu5tgkq5\")
-var ITEM_PANEL: StyleBoxFlat = load(\"uid://ddjx6122v8ere\")
-var ITEM_LECTURE_PAST: LabelSettings = load(\"uid://jir4ekfwhoyq\")
-var ITEM_ROOM_PAST: LabelSettings = load(\"uid://hmg4ipc8m3rj\")
-var ITEM_DETAILS_PAST: LabelSettings = load(\"uid://bvcq0m50skjwu\")
-var ITEM_INFO_PAST: StyleBoxFlat = load(\"uid://koawqbd0ljms\")
-var ITEM_PANEL_INFO: StyleBoxFlat = load(\"uid://t2udoc8b3o62\")
-var ITEM_ICON_PANEL_NOW_INFO: StyleBoxFlat = load(\"uid://cn1n57i4jx3q3\")
-var ITEM_ICON_PANEL_NOW: StyleBoxFlat = load(\"uid://c6jxnlg4boqwg\")
-var ITEM_START_TIME_NOW: LabelSettings = load(\"uid://ckt3mf5ixnjlt\")
-var ITEM_START_TIME_NOW_INFO: LabelSettings = load(\"uid://c6ufqhvbrm6qk\")
-var ITEM_END_TIME_NOW: LabelSettings = load(\"uid://6par1rrqr6w3\")
-var ITEM_INFO_NOW: StyleBoxFlat = load(\"uid://dsm5fact0yxtv\")
-var ITEM_LECTURE_NOW_INFO: LabelSettings = load(\"uid://csylxek74ls62\")
-var ITEM_LECTURE_NOW: LabelSettings = load(\"uid://8n8pnxwtn1pw\")
-var ITEM_ROOM_NOW: LabelSettings = load(\"uid://dx4jti36j8t0\")
-var ITEM_DETAILS_NOW: LabelSettings = load(\"uid://bp7ve6q3oisnn\")
+static var ITEM_PANEL_NORMAL: StyleBoxFlat = load(\"uid://b82uk45b7mhg6\")
+static var ITEM_START_TIME_PAST: LabelSettings = load(\"uid://c40l5qmgnf6t2\")
+static var ITEM_END_LABEL_PAST: LabelSettings = load(\"uid://dti5gcu5tgkq5\")
+static var ITEM_PANEL: StyleBoxFlat = load(\"uid://ddjx6122v8ere\")
+static var ITEM_LECTURE_PAST: LabelSettings = load(\"uid://jir4ekfwhoyq\")
+static var ITEM_ROOM_PAST: LabelSettings = load(\"uid://hmg4ipc8m3rj\")
+static var ITEM_DETAILS_PAST: LabelSettings = load(\"uid://bvcq0m50skjwu\")
+static var ITEM_INFO_PAST: StyleBoxFlat = load(\"uid://koawqbd0ljms\")
+static var ITEM_PANEL_INFO: StyleBoxFlat = load(\"uid://t2udoc8b3o62\")
+static var ITEM_ICON_PANEL_NOW_INFO: StyleBoxFlat = load(\"uid://cn1n57i4jx3q3\")
+static var ITEM_ICON_PANEL_NOW: StyleBoxFlat = load(\"uid://c6jxnlg4boqwg\")
+static var ITEM_START_TIME_NOW: LabelSettings = load(\"uid://ckt3mf5ixnjlt\")
+static var ITEM_START_TIME_NOW_INFO: LabelSettings = load(\"uid://c6ufqhvbrm6qk\")
+static var ITEM_END_TIME_NOW: LabelSettings = load(\"uid://6par1rrqr6w3\")
+static var ITEM_INFO_NOW: StyleBoxFlat = load(\"uid://dsm5fact0yxtv\")
+static var ITEM_LECTURE_NOW_INFO: LabelSettings = load(\"uid://csylxek74ls62\")
+static var ITEM_LECTURE_NOW: LabelSettings = load(\"uid://8n8pnxwtn1pw\")
+static var ITEM_ROOM_NOW: LabelSettings = load(\"uid://dx4jti36j8t0\")
+static var ITEM_DETAILS_NOW: LabelSettings = load(\"uid://bp7ve6q3oisnn\")
+static var ITEM_TIME_LEFT_NOW_INFO: LabelSettings = load(\"uid://cwr08yuf4pc6d\")
+static var ITEM_TIME_LEFT_NOW_STYLE_INFO: StyleBoxFlat = load(\"uid://dvdn1i1dgao23\")
+static var ITEM_TIME_LEFT_NOW_STYLE: StyleBoxFlat = load(\"uid://ds0ng0elbydxk\")
+static var ITEM_TIME_LEFT_NOW: LabelSettings = load(\"uid://byo7vv4ctes8i\")
+static var ITEM_LECTURE_FUTURE: LabelSettings = load(\"uid://b4d0lpl83tyxx\")
+static var ITEM_START_TIME_FUTURE: LabelSettings = load(\"uid://xgjcishk385f\")
+
+func update(item: ScheduleItem) -> void:
+	start_time.text = \"%d02:%02d\" % [item.start_time_hours, item.start_time_minutes]
+	end_time.text = \"%d02:%02d\" % [item.end_time_hours, item.end_time_minutes]
+
+	info.text = item.info
+	lecture.text = item.name
+	room.text = item.room
+
+	details.text = \"%s  •  %s\" % [item.type, item.lecturer]
+	
+	var now = Time.get_datetime_dict_from_system()
+
+	var lecture_start = {
+		\"year\": item.year,
+		\"month\": item.month - 1,
+		\"day\": item.day,
+		\"hour\": item.start_time_hours,
+		\"minute\": item.start_time_minutes,
+		\"second\": 0
+	}
+
+	var lecture_end = {
+		\"year\": item.year,
+		\"month\": item.month - 1,
+		\"day\": item.day,
+		\"hour\": item.end_time_hours,
+		\"minute\": item.end_time_minutes,
+		\"second\": 0
+	}
+
+	var now_unix = Time.get_unix_time_from_datetime_dict(now)
+	var start_unix = Time.get_unix_time_from_datetime_dict(lecture_start)
+	var end_unix = Time.get_unix_time_from_datetime_dict(lecture_end)
+
+	if now_unix >= start_unix and now_unix <= end_unix:
+		time_left.text = \"%d m left\" % [ceili((end_unix - now_unix) / 60.0)]
+		set_now()
+	elif now_unix > end_unix:
+		set_past()
+	else:
+		set_future()
+	
+	if has_info:
+		info.show()
+		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL_INFO)
+	else:
+		info.hide()
+		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL)
+
 
 # item: ScheduleItem
-func update() -> void:
+func update2() -> void:
 	match state:
 		\"past\":
 			set_past()
@@ -69,14 +128,6 @@ func update() -> void:
 			set_future()
 		_:
 			set_now()
-	
-	if has_info:
-		info.show()
-		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL_INFO)
-	else:
-		info.hide()
-		item_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL)
-
 
 func set_past() -> void:
 	if has_info:
@@ -89,6 +140,7 @@ func set_past() -> void:
 	lecture.label_settings = ITEM_LECTURE_PAST
 	room.label_settings = ITEM_ROOM_PAST
 	details.label_settings = ITEM_DETAILS_PAST
+	time_left.hide()
 
 func set_now() -> void:
 	if has_info:
@@ -96,37 +148,34 @@ func set_now() -> void:
 		icon_panel.add_theme_stylebox_override(\"panel\", ITEM_ICON_PANEL_NOW_INFO)
 		start_time.label_settings = ITEM_START_TIME_NOW_INFO
 		lecture.label_settings = ITEM_LECTURE_NOW_INFO
+		time_left.label_settings = ITEM_TIME_LEFT_NOW_INFO
+		time_left.add_theme_stylebox_override(\"normal\", ITEM_TIME_LEFT_NOW_STYLE_INFO)
 	else:
 		icon_panel.add_theme_stylebox_override(\"panel\", ITEM_ICON_PANEL_NOW)
 		start_time.label_settings = ITEM_START_TIME_NOW
 		lecture.label_settings = ITEM_LECTURE_NOW
+		time_left.label_settings = ITEM_TIME_LEFT_NOW
+		time_left.add_theme_stylebox_override(\"normal\", ITEM_TIME_LEFT_NOW_STYLE)
 	end_time.label_settings = ITEM_END_TIME_NOW
 	room.label_settings = ITEM_ROOM_NOW
 	details.label_settings = ITEM_DETAILS_NOW
+	time_left.show()
 
 
 func set_future() -> void:
-	pass
+	if has_info:
+		info.add_theme_stylebox_override(\"normal\", ITEM_INFO_PAST)
+	icon_panel.add_theme_stylebox_override(\"panel\", ITEM_PANEL_NORMAL)
+	lecture.label_settings = ITEM_LECTURE_FUTURE
+	start_time.label_settings = ITEM_START_TIME_FUTURE
+	end_time.label_settings = ITEM_END_TIME_NOW
+	room.label_settings = ITEM_ROOM_NOW
+	details.label_settings = ITEM_DETAILS_NOW
+	time_left.hide()
 "
 
 [sub_resource type="LabelSettings" id="LabelSettings_iv85p"]
 font_size = 40
-font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ytsd"]
-content_margin_left = 20.0
-content_margin_top = 10.0
-content_margin_right = 20.0
-content_margin_bottom = 10.0
-bg_color = Color(0.8509804, 0, 0.39607844, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-corner_detail = 20
-
-[sub_resource type="LabelSettings" id="LabelSettings_0xukj"]
-font_size = 30
 font_color = Color(0.7764706, 0.8156863, 0.8392157, 1)
 
 [node name="Item" type="HBoxContainer" node_paths=PackedStringArray("icon_panel", "icon", "start_time", "end_time", "item_panel", "info", "lecture", "room", "details", "time_left")]
@@ -149,7 +198,7 @@ lecture = NodePath("ItemPanel/VBoxContainer2/Lecture")
 room = NodePath("ItemPanel/VBoxContainer2/Room")
 details = NodePath("ItemPanel/VBoxContainer2/HBoxContainer/Details")
 time_left = NodePath("ItemPanel/VBoxContainer2/HBoxContainer/TimeLeft")
-state = "now"
+state = "future"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2
@@ -161,7 +210,7 @@ theme_override_constants/separation = 20
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("1_hnkg5")
+theme_override_styles/panel = ExtResource("1_28nsk")
 
 [node name="TextureRect" type="TextureRect" parent="VBoxContainer/IconPanel"]
 layout_mode = 2
@@ -171,7 +220,7 @@ texture = ExtResource("1_bjewl")
 [node name="StartTime" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 text = "08:00"
-label_settings = ExtResource("3_b3hy4")
+label_settings = ExtResource("3_28nsk")
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -198,6 +247,7 @@ theme_override_constants/separation = 20
 [node name="Info" type="Label" parent="ItemPanel/VBoxContainer2"]
 visible = false
 layout_mode = 2
+theme_override_styles/normal = ExtResource("6_56b2h")
 text = "Przeniesienie zajęć"
 label_settings = SubResource("LabelSettings_iv85p")
 horizontal_alignment = 1
@@ -206,7 +256,7 @@ text_overrun_behavior = 3
 [node name="Lecture" type="Label" parent="ItemPanel/VBoxContainer2"]
 layout_mode = 2
 text = "Wprowadzenie do uczenia maszynowego"
-label_settings = ExtResource("7_b3hy4")
+label_settings = ExtResource("7_28nsk")
 text_overrun_behavior = 3
 
 [node name="Room" type="Label" parent="ItemPanel/VBoxContainer2"]
@@ -232,8 +282,8 @@ text_overrun_behavior = 3
 visible = false
 layout_mode = 2
 size_flags_horizontal = 8
-theme_override_styles/normal = SubResource("StyleBoxFlat_1ytsd")
+theme_override_styles/normal = ExtResource("10_28nsk")
 text = "45m left"
-label_settings = SubResource("LabelSettings_0xukj")
+label_settings = ExtResource("11_05aq4")
 horizontal_alignment = 1
 vertical_alignment = 1

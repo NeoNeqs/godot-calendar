@@ -1,0 +1,38 @@
+[gd_scene load_steps=6 format=3 uid="uid://jia2fv56h6tv"]
+
+[ext_resource type="ButtonGroup" uid="uid://51bccfn53g0g" path="res://day_button_group.tres" id="1_3pq1j"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx18j"]
+content_margin_top = 20.0
+content_margin_bottom = 20.0
+draw_center = false
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_x03ua"]
+content_margin_top = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.16862746, 0.42352942, 0.93333334, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+corner_detail = 20
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_rt867"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_x03ua"]
+
+[node name="Button" type="Button"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_constants/line_spacing = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_tx18j")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_x03ua")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_rt867")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_x03ua")
+toggle_mode = true
+button_group = ExtResource("1_3pq1j")
