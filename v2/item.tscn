@@ -68,38 +68,41 @@ static var ITEM_LECTURE_FUTURE: LabelSettings = load(\"uid://b4d0lpl83tyxx\")
 static var ITEM_START_TIME_FUTURE: LabelSettings = load(\"uid://xgjcishk385f\")
 
 func update(item: ScheduleItem) -> void:
-	start_time.text = \"%d02:%02d\" % [item.start_time_hours, item.start_time_minutes]
-	end_time.text = \"%d02:%02d\" % [item.end_time_hours, item.end_time_minutes]
+	start_time.text = \"%02d:%02d\" % [item.start_time_hours, item.start_time_minutes]
+	end_time.text = \"%02d:%02d\" % [item.end_time_hours, item.end_time_minutes]
 
 	info.text = item.info
 	lecture.text = item.name
 	room.text = item.room
 
-	details.text = \"%s  •  %s\" % [item.type, item.lecturer]
+	details.text = \"%s\" % [item.type]
+	if item.lecturer.strip_edges().length() > 0:
+		details.text += \"  •  %s\" % [item.lecturer]
 	
-	var now = Time.get_datetime_dict_from_system()
+	var now := Time.get_datetime_dict_from_system()
 
-	var lecture_start = {
+	var lecture_start := {
 		\"year\": item.year,
-		\"month\": item.month - 1,
+		\"month\": item.month,
 		\"day\": item.day,
 		\"hour\": item.start_time_hours,
 		\"minute\": item.start_time_minutes,
 		\"second\": 0
 	}
 
-	var lecture_end = {
+	var lecture_end := {
 		\"year\": item.year,
-		\"month\": item.month - 1,
+		\"month\": item.month,
 		\"day\": item.day,
 		\"hour\": item.end_time_hours,
 		\"minute\": item.end_time_minutes,
 		\"second\": 0
 	}
 
-	var now_unix = Time.get_unix_time_from_datetime_dict(now)
-	var start_unix = Time.get_unix_time_from_datetime_dict(lecture_start)
-	var end_unix = Time.get_unix_time_from_datetime_dict(lecture_end)
+	var now_unix := Time.get_unix_time_from_datetime_dict(now)
+	var start_unix := Time.get_unix_time_from_datetime_dict(lecture_start)
+	var end_unix := Time.get_unix_time_from_datetime_dict(lecture_end)
+	
 
 	if now_unix >= start_unix and now_unix <= end_unix:
 		time_left.text = \"%d m left\" % [ceili((end_unix - now_unix) / 60.0)]

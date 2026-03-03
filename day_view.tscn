@@ -116,6 +116,7 @@ script = ExtResource("3_sc25q")
 
 [node name="DayButtonsContainer" type="HBoxContainer" parent="MainLayout/DayButtons"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 30
 
 [node name="Button" type="Button" parent="MainLayout/DayButtons/DayButtonsContainer"]
