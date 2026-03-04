@@ -5,17 +5,21 @@ extends RefCounted
 #signal done()
 signal success(file_path: String)
 signal failed(code: int)
+signal completed
 
 const file := "user://schedule.html"
 
 func fetch() -> HTTPRequest:
 	var _http := HTTPRequest.new()
-	_http.request_completed.connect(func _request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_http.request_completed.connect(func _request_completed(_result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 		if response_code == 200:
 			success.emit(file)
 		else:
 			# TODO: show toast somewhere and try to extract error from body ?
 			failed.emit(response_code)
+		completed.emit()
+		
+		_http.queue_free()
 	)
 	_http.use_threads = true
 	_http.download_file = file

@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://ht0074yl453k"]
+[gd_scene load_steps=12 format=3 uid="uid://ht0074yl453k"]
 
 [ext_resource type="FontFile" uid="uid://c50b0gur1nxoj" path="res://assets/Lato/Lato-Regular.ttf" id="1_x03ua"]
 [ext_resource type="Texture2D" uid="uid://bhu78ci5w7otn" path="res://assets/train_30dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" id="2_7vw6b"]
@@ -12,296 +12,161 @@ default_font_size = 40
 [sub_resource type="GDScript" id="GDScript_iqtqh"]
 script/source = "extends VBoxContainer
 
-@onready var trains: Button = $MarginContainer/VBoxContainer/HBoxContainer/Trains
-@onready var reload: Button = $MarginContainer/VBoxContainer/HBoxContainer/Reload
-@onready var day_buttons_container: HBoxContainer = $MarginContainer/VBoxContainer/MarginContainer/ScrollContainer/DayButtonsContainer
-@onready var label: Label = $MarginContainer/VBoxContainer/HBoxContainer/Label
-@onready var prevoius_day_view_container: VBoxContainer = $MainView/ScrollContainer/HBoxContainer/PrevoiusDayView/PrevoiusDayViewContainer
-@onready var current_day_view_container: VBoxContainer = $MainView/ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayViewContainer
-@onready var next_day_view_container: VBoxContainer = $MainView/ScrollContainer/HBoxContainer/NextDayView/NextDayViewContainer
-@onready var main_view: PanelContainer = $MainView
-@onready var h_box_container: HBoxContainer = $MainView/ScrollContainer/HBoxContainer
+@export var reload_button: Button
+@export var day_buttons_container: HBoxContainer
+@export var selected_date: Label
+@export var scroll_container: ScrollContainer
+@export var h_box_container: HBoxContainer
+@export var previous_day_view_container: VBoxContainer
+@export var current_day_view_container: VBoxContainer
+@export var next_day_view_container: VBoxContainer
+@export var main_view: PanelContainer
+# = $MainView
+
+var DAY_BUTTON: PackedScene = load(\"uid://jia2fv56h6tv\")
+var ITEM: PackedScene = load(\"uid://dr4yqve67a4pf\")
 
 var config := Config.load_config()
-var selected_date: String
-var selected_date_index: int = 0
 
-const weekdays := [\"MON\", \"TUE\", \"WED\", \"THU\", \"FRI\", \"SAT\", \"SUN\"]
-const weekdays_long := [\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\", \"Saturday\", \"Sunday\"]
-const months := [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"]
 const MAX_DAY_BUTTONS_ON_SCREEN: int = 5
 
-static var ITEM: PackedScene = load(\"uid://dr4yqve67a4pf\")
-
-static var DAY_BUTTON: PackedScene = load(\"uid://jia2fv56h6tv\")
-
+var selected_day_index: int = 0
 
 func _ready() -> void:
-	reload.pressed.connect(func():
-		Config.unload()
-		# clear
-		_load()
-	)
-	_load()
-	main_view.snapped.connect(func(dir: int) -> void:
-		print(dir)
-		if dir == -1:
-			for node: Node in next_day_view_container.get_children():
-				node.queue_free()
-				next_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				next_day_view_container.add_child(item)
-			
-			await main_view.snap_ended
-			
-			for node: Node in current_day_view_container.get_children():
-				node.queue_free()
-				current_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index - 1]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				current_day_view_container.add_child(item)
-			
-			h_box_container.update()
-			
-			selected_date_index -= 1
-			selected_date = config.schedule.items.keys()[selected_date_index]
-			
-			for node: Node in prevoius_day_view_container.get_children():
-				node.queue_free()
-				prevoius_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index - 1]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				prevoius_day_view_container.add_child(item)
-		elif dir == 1:
-			print(selected_date)
-			for node: Node in prevoius_day_view_container.get_children():
-				node.queue_free()
-				prevoius_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				prevoius_day_view_container.add_child(item)
-			
-			await main_view.snap_ended
-			
-			for node: Node in current_day_view_container.get_children():
-				node.queue_free()
-				current_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index + 1]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				current_day_view_container.add_child(item)
-			
-			h_box_container.update()
-			
-			selected_date_index += 1
-			selected_date = config.schedule.items.keys()[selected_date_index]
-			for node: Node in next_day_view_container.get_children():
-				node.queue_free()
-				next_day_view_container.remove_child(node)
-			
-			for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[selected_date_index + 1]]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				next_day_view_container.add_child(item)
-	)
+	var s := Time.get_ticks_usec()
+	reload_button.pressed.connect(_reload)
+	await _load()
+	if not config.schedule == null:
+		_update()
+	var e := Time.get_ticks_usec()
+	print(e - s)
 
-func _on_day_buttons_parent_resized() -> void:
-	var parent_size: Vector2 = get_parent_area_size()
-	if parent_size.x > 0:
-		var space_between: int = day_buttons_container.get_theme_constant(\"separation\")
-		for node: Node in day_buttons_container.get_children():
-			(node as Control).custom_minimum_size.x = (parent_size.x - (MAX_DAY_BUTTONS_ON_SCREEN - 1) * space_between) / MAX_DAY_BUTTONS_ON_SCREEN
-		day_buttons_container.get_parent_control().resized.disconnect(_on_day_buttons_parent_resized)
-		
+
+func _reload() -> void:
+	Config.unload()
+	await _load()
+	if not config.schedule == null:
+		_update()
+
 
 func _load() -> void:
-	var ms_since_last_fetch: int = Time.get_ticks_msec() - config.last_fetch_timestamp
+	reload_button.disabled = true
+	var schedule_fetcher: ScheduleFetcher = config.load_schedule()
 	
-	if not config.schedule == null and ms_since_last_fetch <= config.cache_retention_ms:
-		show_toast(\"Loading cached schedule...\")
-		update()
-		return
-	
-	show_toast(\"Fetching fresh schedule...\")
-	
-	reload.disabled = true
-	
-	var schedule := ScheduleFetcher.new()
-	add_child(schedule.fetch())
-	
-	schedule.success.connect(func on_schedule_fetch_success(file_path: String) -> void:
-		config.schedule = ScheduleParser.new().parse(file_path)
-		config.last_fetch_timestamp = Time.get_ticks_msec()
-		Config.save()
+	if not schedule_fetcher == null:
+		var request: HTTPRequest = schedule_fetcher.fetch()
+		add_child(request)
 		
-		update()
-		show_toast(\"Fetching done\")
-		
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(ScheduleFetcher.file))
-		reload.disabled = false
-	)
+		await schedule_fetcher.completed
 	
-	schedule.failed.connect(func on_schedule_fetch_failed(code: int) -> void: 
-		show_toast(\"Fetching failed, error code: %s\" % [code])
-		update()
-		reload.disabled = false
-	)
+	reload_button.disabled = false
 
-
-func update() -> void:
-	const MAX_BUTTONS_ON_SCREEN := 5
-	var found_today := false
+func _update() -> void:
+	var day_buttons_scroll_container: Vector2 = day_buttons_container.get_parent_area_size()
 	
-	var params: Array[Variant] = [null, null, null, null]
-	var today: String = Time.get_date_string_from_system()
-	#today = \"2026-03-07\"
+	# if I don't wait the size is (0, 0) ...
+	# There isn't a better way to do this and I will die on that hill.
+	while day_buttons_scroll_container.x <= 0:
+		day_buttons_scroll_container = day_buttons_container.get_parent_area_size()
+		await get_tree().process_frame
 	
-	var parent_size: Vector2 = day_buttons_container.get_parent_area_size()
+	var schedule_size: int = config.schedule.items.size()
 	var space_between: int = day_buttons_container.get_theme_constant(\"separation\")
-	# if we don't wait the size is (0, 0) ...
-	# There isn't a better way to do this and I will die on that hill.
-	while parent_size.x <= 0:
-		parent_size = day_buttons_container.get_parent_area_size()
-		await get_tree().process_frame
+	var total_spacing: float = (MAX_DAY_BUTTONS_ON_SCREEN - 1) * space_between
+	var day_button_width: float = (day_buttons_scroll_container.x - total_spacing) / float(MAX_DAY_BUTTONS_ON_SCREEN)
+	var items: Dictionary[String, Array] = config.schedule.items
 	
-	for node: Node in day_buttons_container.get_children():
-		node.queue_free()
-		day_buttons_container.remove_child(node)
+	scroll_container.resized.connect(update_scroll_container)
 	
-	var date_index := 0
-	for date: String in config.schedule.items:
-		var node: Button = DAY_BUTTON.instantiate()
-		day_buttons_container.add_child(node)
-		var datetime: Dictionary = Time.get_datetime_dict_from_datetime_string(date, true)
-		node.text = \"%s\\n%s\" % [weekdays[datetime.weekday - 1], datetime.day]
-		node.custom_minimum_size.x = (parent_size.x - (MAX_BUTTONS_ON_SCREEN - 1) * space_between) / MAX_BUTTONS_ON_SCREEN
-		node.toggled.connect(func on_day_button_toggled(state: bool) -> void:
-			if not state: return
-			label.text = \"%s, %s %d\" % [weekdays_long[datetime.weekday - 1], months[datetime.month - 1], datetime.day]
-			for old_node: Node in current_day_view_container.get_children():
-				old_node.queue_free()
-				current_day_view_container.remove_child(old_node)
-		
-			for schedule_item: ScheduleItem in config.schedule.items[date]:
-				var item := ITEM.instantiate()
-				item.update(schedule_item)
-				current_day_view_container.add_child(item)
-			selected_date = date
-			selected_date_index = date_index
-		)
-		
-		if not found_today:
-			if date < today:
-				params[0] = node
-				params[1] = datetime.weekday
-				params[2] = datetime.month
-				params[3] = datetime.day
-				selected_date = date
-				selected_date_index = date_index
-				date_index += 1
-			elif date == today:
-				found_today = true
-				selected_date = date
-				selected_date_index = date_index
-				params[0] = node
-				params[1] = datetime.weekday
-				params[2] = datetime.month
-				params[3] = datetime.day
-	label.text = \"%s, %s %d\" % [weekdays_long[params[1] - 1], months[params[2] - 1], params[3]]
-	
-	if found_today:
-		var normal_stylebox := params[0].get_theme_stylebox(\"normal\") as StyleBoxFlat
-		normal_stylebox.set_border_width_all(4)
-		normal_stylebox.border_color = Color(\"2b6cee\")
-		params[0].add_theme_stylebox_override(\"hover\", normal_stylebox)
-		
-	params[0].set_pressed(true)
-	# There isn't a better way to do this and I will die on that hill.
-	for i: int in 2:
-		await get_tree().process_frame
-	(day_buttons_container.get_parent_control() as ScrollContainer).scroll_horizontal = (params[0].get_index() - params[1] + 1) * (params[0].custom_minimum_size.x + day_buttons_container.get_theme_constant(\"separation\"))
-
-	for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[date_index - 1]]:
-		var item := ITEM.instantiate()
-		item.update(schedule_item)
-		prevoius_day_view_container.add_child(item)
-
-	for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[date_index]]:
-		var item := ITEM.instantiate()
-		item.update(schedule_item)
-		current_day_view_container.add_child(item)
-	
-	for schedule_item: ScheduleItem in config.schedule.items[config.schedule.items.keys()[date_index + 1]]:
-		var item := ITEM.instantiate()
-		item.update(schedule_item)
-		next_day_view_container.add_child(item)
-	
-		#node.toggled.connect(func(toggled_on: bool) -> void:
-			#if toggled_on:
-				#update_items(date)
-				#if node.global_position.x >= 5 * day_buttons_container.get_theme_constant(\"separation\") + 4 * node.size.x:
-					#day_buttons.scroll_horizontal += (day_buttons_container.get_theme_constant(\"separation\") + int(node.size.x))
-				#elif node.global_position.x <= day_buttons_container.get_theme_constant(\"separation\") + node.size.x:
-					#day_buttons.scroll_horizontal -= (day_buttons_container.get_theme_constant(\"separation\") + int(node.size.x))
-				#
-				#var item: ScheduleItem = config.schedule.items[date][0]
-				#label_2.text = \"%s, %02d %s %d\" % [
-					#item.weekday, item.day, [\"Styczeń\", \"Luty\", \"Marzec\", \"Kwiecień\", \"Maj\", \"Czerwiec\", \"Lipiec\", \"Sierpień\", \"Wrzesień\", \"Październik\", \"Listopad\", \"Grudzień\"][item.month - 1], item.year
-				#]
-		#)
-		#
-
-		#for sch_item: ScheduleItem in config.schedule.items[date]:
-			#node.update(sch_item.weekday, sch_item.day)
-
-
-func show_toast(msg: String) -> void:
-	if OS.has_feature(\"android\"):
-		var android_runtime = Engine.get_singleton(\"AndroidRuntime\")
-		if android_runtime:
-			var activity = android_runtime.getActivity()
+	_update_object_pool(
+		day_buttons_container, 
+		DAY_BUTTON, 
+		schedule_size, 
+		func day_button_update(button: Button) -> void:
+			var date: String = items.keys()[button.get_index()]
 			
-			var toastCallable = func ():
-				var ToastClass = JavaClassWrapper.wrap(\"android.widget.Toast\")
-				ToastClass.makeText(activity, msg, 1).show()
-				
-			activity.runOnUiThread(android_runtime.createRunnableFromGodotCallable(toastCallable))
-		else:
-			printerr(\"Unable to access android runtime\")
-	print(msg)
+			var datetime: Dictionary = Time.get_datetime_dict_from_datetime_string(date, true)
+			button.text = Global.humanize_day(datetime)
+			button.custom_minimum_size.x = day_button_width
+			
+			var on_day_button_toggled: Callable = day_button_toggled.bind(button, date)
+			# disconnect!!
+			if button.toggled.is_connected(on_day_button_toggled):
+				button.toggled.disconnect(on_day_button_toggled)
+			button.toggled.connect(on_day_button_toggled)
+	)
+	day_buttons_container.get_child(0).set_pressed(true)
+
+
+func day_button_toggled(button_toggled: bool, button: Button, date: String) -> void:
+	if not button_toggled:
+		return
+	print(date)
+	var items: Dictionary[String, Array] = config.schedule.items
+	
+	var datetime: Dictionary = Time.get_datetime_dict_from_datetime_string(date, true)
+	
+	selected_date.text = Global.humanize_date(datetime)
+	selected_day_index = button.get_index()
+	
+	_update_object_pool(
+		current_day_view_container,
+		ITEM,
+		items[date].size(),
+		(func item_update(item: HBoxContainer) -> void:
+			item.update(items[date][item.get_index()])
+			)
+	)
+
+	main_view.set_horizontal_block(selected_day_index == 0, selected_day_index == items.size() - 1)
+	
+	if selected_day_index - 1 >= 0:
+		var arr := items[items.keys()[selected_day_index - 1]]
+		_update_object_pool(
+			previous_day_view_container,
+			ITEM,
+			arr.size(),
+			(func item_update(item: HBoxContainer) -> void:
+				item.update(arr[item.get_index()])
+				)
+		)
+	
+	if selected_day_index + 1 < items.size():
+		var arr := items[items.keys()[selected_day_index + 1]]
+		_update_object_pool(
+			next_day_view_container,
+			ITEM,
+			arr.size(),
+			(func item_update(item: HBoxContainer) -> void:
+				item.update(arr[item.get_index()])
+				)
+			)
+
+
+func update_scroll_container() -> void:
+	h_box_container.custom_minimum_size.x = 3 * scroll_container.size.x
+	scroll_container.set_h_scroll(int(scroll_container.size.x))
+
+
+func _update_object_pool(parent: Node, scene: PackedScene, new_size: int, update_callback: Callable) -> void:
+	var children_count: int = parent.get_child_count()
+
+	var diff: int = new_size - children_count
+	for i: int in maxi(0, diff):
+		var node: Node = scene.instantiate()
+		parent.add_child(node)
+	
+	# Children count may change here!
+	for i: int in parent.get_child_count():
+		var node := parent.get_child(i)
+		assert(node is Control)
+		if i < new_size:
+			update_callback.call(node)
+		(node as Control).visible = i < new_size
 "
 
 [sub_resource type="LabelSettings" id="LabelSettings_enup1"]
 font_size = 65
-
-[sub_resource type="GDScript" id="GDScript_x03ua"]
-script/source = "#@tool
-extends HBoxContainer
-#
-#
-#func _ready() -> void:
-	#get_parent_control().resized.connect(on_parent_resized)
-#
-#
-#func on_parent_resized() -> void:
-	#var parent_size: Vector2 = get_parent_area_size()
-	#if parent_size.x > 0:
-		#const MAX_BUTTONS_ON_SCREEN := 5
-		#var space_between: int = get_theme_constant(\"separation\")
-		#for node: Node in get_children():
-			#(node as Control).custom_minimum_size.x = (parent_size.x - (MAX_BUTTONS_ON_SCREEN - 1) * space_between) / MAX_BUTTONS_ON_SCREEN
-		#get_parent_control().resized.disconnect(on_parent_resized)
-"
 
 [sub_resource type="FontVariation" id="FontVariation_iedju"]
 base_font = ExtResource("2_iedju")
@@ -336,6 +201,9 @@ var snap_start_h: float = 0.0
 var snap_target_h: float = 0.0
 var snap_elapsed: float = 0.0
 
+var block_snap_left: bool = false   # prevents going to previous page
+var block_snap_right: bool = false  # prevents going to next page
+
 const DEADZONE: float = 6.0
 const SENSITIVITY: float = 0.7
 const INERTIA_MULTIPLIER: float = 2.5
@@ -364,6 +232,10 @@ func _gui_input(event: InputEvent) -> void:
 		_handle_mouse_button(event as InputEventMouseButton)
 	elif event is InputEventMouseMotion:
 		_handle_mouse_motion(event as InputEventMouseMotion)
+
+func set_horizontal_block(left: bool, right: bool) -> void:
+	block_snap_left = left
+	block_snap_right = right
 
 # --- input helpers --------------------------------------------------------
 
@@ -525,6 +397,12 @@ func _start_horizontal_snap_from_drag() -> void:
 	# ---------------------------------
 	var did_snap := target_index != start_index
 	var snap_direction := signi(target_index - start_index)
+	
+	# Block direction if needed
+	if snap_direction < 0 and block_snap_left:
+		target_index = start_index
+	elif snap_direction > 0 and block_snap_right:
+		target_index = start_index
 
 	if did_snap:
 		snapped.emit(snap_direction) # emit -1 or +1
@@ -550,368 +428,9 @@ func _apply_scroll(delta_pos: Vector2) -> void:
 	v = clampf(v - delta_pos.y, 0.0, max_v)
 	scroll_container.set_h_scroll(int(h))
 	scroll_container.set_v_scroll(int(v))
-
-
-#extends PanelContainer
-#
-#@onready var scroll_container: ScrollContainer = $ScrollContainer
-#@onready var content: Control = null
-#
-#var pressed := false
-#var scroll_speed := Vector2.ZERO
-#var axis_locked := 0 # 0 = none, 1 = horizontal, 2 = vertical
-#var last_motion := Vector2.ZERO
-#var cumulative_motion := Vector2.ZERO
-#
-#var dragging := false
-#var drag_start_h := 0.0
-#
-#
-#var snapping := false
-#var snap_start_h := 0.0
-#var snap_target_h := 0.0
-#var snap_elapsed := 0.0
-#
-#const DEADZONE := 6.0
-#const SENSITIVITY := 0.7
-#const INERTIA_MULTIPLIER := 2.5
-#const MAX_SPEED := 6000.0
-#const DECAY := 4.5
-#const MIN_SPEED := 30.0
-#
-### fraction of viewport width required to change column
-#const SNAP_THRESHOLD_RATIO := 0.3   
-#const SNAP_DURATION := 0.20
-#const SNAP_VELOCITY_THRESHOLD := 250.0  # optional: px/sec to force snap on quick fling
-#
-#func _ready() -> void:
-	#set_process(true)
-	#if scroll_container and scroll_container.get_child_count() > 0:
-		#content = scroll_container.get_child(0) as Control
-#
-#func _draw() -> void:
-	#draw_line(Vector2(75, 0), Vector2(75, size.y), Color(\"1e293b\"), 4)
-#
-#func _gui_input(event: InputEvent) -> void:
-	## ignore user input while snapping
-	#if snapping:
-		#return
-#
-	#if event is InputEventMouseButton:
-		#if event.button_index == MOUSE_BUTTON_LEFT:
-			#if event.pressed:
-				#pressed = true
-				#dragging = true
-				#axis_locked = 0
-				#scroll_speed = Vector2.ZERO
-				#last_motion = Vector2.ZERO
-				#cumulative_motion = Vector2.ZERO
-				## record the horizontal offset at drag start
-				#if scroll_container:
-					#drag_start_h = float(scroll_container.get_h_scroll())
-			#else:
-				## on release: lock axis if needed and start snap if horizontal
-				#pressed = false
-				#dragging = false
-				#if axis_locked == 0:
-					## pick axis from cumulative motion or velocity
-					#if cumulative_motion.length() > 0.0:
-						#if abs(cumulative_motion.x) > abs(cumulative_motion.y):
-							#axis_locked = 1
-						#else:
-							#axis_locked = 2
-					#elif scroll_speed.length() > 0.0:
-						#if abs(scroll_speed.x) > abs(scroll_speed.y):
-							#axis_locked = 1
-						#else:
-							#axis_locked = 2
-				#_enforce_axis_on_speed()
-				## If horizontal, determine snap based on drag start + delta (or fling)
-				#if axis_locked == 1:
-					#_start_horizontal_snap_from_drag()
-				## vertical inertia handled in _process
-				#cumulative_motion = Vector2.ZERO
-	#elif event is InputEventMouseMotion:
-		#var motion := event as InputEventMouseMotion
-		#if pressed:
-			#var rel := motion.relative * SENSITIVITY
-			#last_motion = rel
-			## buffer movement until we have a clear axis (prevent small pre-lock drift)
-			#cumulative_motion += rel
-#
-			## If axis not decided yet, only apply when cumulative motion exceeds DEADZONE
-			#if axis_locked == 0:
-				#if cumulative_motion.length() <= DEADZONE:
-					## not enough movement yet — don't move content at all
-					#return
-				## choose axis based on buffered cumulative movement
-				#if abs(cumulative_motion.x) > abs(cumulative_motion.y):
-					#axis_locked = 1
-				#else:
-					#axis_locked = 2
-				## apply the buffered movement only along the chosen axis
-				#var initial_rel := Vector2.ZERO
-				#if axis_locked == 1:
-					#initial_rel.x = cumulative_motion.x
-				#else:
-					#initial_rel.y = cumulative_motion.y
-				#_apply_scroll(initial_rel)
-				## set a sensible initial fling velocity from that buffered motion
-				#var v0 := initial_rel * 60.0 * INERTIA_MULTIPLIER
-				#var sp0 := v0.length()
-				#if sp0 > MAX_SPEED and sp0 > 0.0:
-					#v0 = v0.normalized() * MAX_SPEED
-				#scroll_speed = v0
-				#_enforce_axis_on_speed()
-				## we've applied the buffer, clear it
-				#cumulative_motion = Vector2.ZERO
-				#return
-#
-			## axis already chosen — zero the non-locked axis and apply current rel
-			#if axis_locked == 1:
-				#rel.y = 0
-			#elif axis_locked == 2:
-				#rel.x = 0
-			#_apply_scroll(rel)
-#
-			## estimate fling velocity (px/sec) and clamp to safe max
-			#var v := rel * 60.0 * INERTIA_MULTIPLIER
-			#var speed := v.length()
-			#if speed > MAX_SPEED and speed > 0.0:
-				#v = v.normalized() * MAX_SPEED
-			## while dragging, ensure velocity respects axis lock
-			#scroll_speed = v
-			#_enforce_axis_on_speed()
-#
-#func _process(delta: float) -> void:
-	## Snap animation (highest priority)
-	#if snapping:
-		#snap_elapsed += delta
-		#var t := clampf(snap_elapsed / SNAP_DURATION, 0.0, 1.0)
-		## smooth ease-out cubic
-		#var eased := 1.0 - pow(1.0 - t, 3)
-		#var new_h := lerpf(snap_start_h, snap_target_h, eased)
-		#scroll_container.set_h_scroll(int(new_h))
-		## finish snap
-		#if t >= 1.0:
-			#snapping = false
-			#axis_locked = 0
-			#scroll_speed = Vector2.ZERO
-		#return
-#
-	## inertia handling when released (vertical allowed; horizontal inertia suppressed if snap was started)
-	#if not pressed and scroll_speed.length() > MIN_SPEED:
-		## if axis isn't locked yet, pick axis based on velocity and enforce it
-		#if axis_locked == 0 and scroll_speed.length() > 0.0:
-			#if abs(scroll_speed.x) > abs(scroll_speed.y):
-				#axis_locked = 1
-			#else:
-				#axis_locked = 2
-			#_enforce_axis_on_speed()
-#
-		#var move := scroll_speed * delta
-		#if axis_locked == 1:
-			#move.y = 0
-		#elif axis_locked == 2:
-			#move.x = 0
-		#_apply_scroll(move)
-#
-		## exponential decay (frame-rate independent)
-		#var decay_factor := exp(-DECAY * delta)
-		#scroll_speed *= decay_factor
-#
-		## stop guard
-		#if scroll_speed.length() <= MIN_SPEED:
-			#scroll_speed = Vector2.ZERO
-			#axis_locked = 0
-#
-#func _start_horizontal_snap_from_drag() -> void:
-	## Decide snap target based on drag start + delta and optional fling velocity override
-	#if not scroll_container or not content:
-		#return
-	#var vw := float(scroll_container.size.x)
-	#if vw <= 0.0:
-		#return
-	#var release_h := float(scroll_container.get_h_scroll())
-	#var delta_h := release_h - drag_start_h
-	#var delta_fraction := delta_h / vw
-	#var threshold_frac := SNAP_THRESHOLD_RATIO
-#
-	#var max_index := int(floor(content.size.x / vw))
-	## Determine which column was visually centered at drag start (robust to tiny offsets)
-	#var start_index := int(clamp(floor((drag_start_h + vw * 0.5) / vw), 0, max_index))
-#
-	#var target_index := start_index
-#
-	## Primary rule: distance-based threshold (uses fraction of viewport)
-	#if delta_fraction >= threshold_frac:
-		#target_index = clampi(start_index + 1, 0, max_index)
-	#elif delta_fraction <= -threshold_frac:
-		#target_index = clampi(start_index - 1, 0, max_index)
-	#else:
-		## No distance threshold passed — optionally allow a velocity override
-		## Only use velocity override if it is clearly in the same direction as the drag.
-		#if abs(scroll_speed.x) >= SNAP_VELOCITY_THRESHOLD:
-			## map fling to column delta: finger right -> content moves left -> index -1
-			#var fling_dir := signf(scroll_speed.x) * -1
-			#var drag_dir := signf(delta_h)
-			## If drag_dir == 0 (tiny drag) fall back to fling direction
-			#if drag_dir == 0:
-				#drag_dir = fling_dir
-			## Only allow velocity override when fling and drag agree
-			#if fling_dir == drag_dir and drag_dir != 0:
-				#if drag_dir > 0:
-					#target_index = clamp(start_index + 1, 0, max_index)
-				#else:
-					#target_index = clamp(start_index - 1, 0, max_index)
-			#else:
-				#target_index = start_index
-		#else:
-			#target_index = start_index
-#
-	## compute target offset in px and start the snap
-	#var target_h := float(target_index) * vw
-	#snapping = true
-	#snap_elapsed = 0.0
-	#snap_start_h = float(scroll_container.get_h_scroll())
-	#snap_target_h = clampf(target_h, 0.0, maxf(0.0, content.size.x - vw))
-	## cancel horizontal inertia during snap
-	#scroll_speed.x = 0.0
-	#axis_locked = 1
-#func _enforce_axis_on_speed() -> void:
-	#if axis_locked == 1:
-		#scroll_speed.y = 0
-	#elif axis_locked == 2:
-		#scroll_speed.x = 0
-#
-#func _apply_scroll(delta_pos: Vector2) -> void:
-	#if not scroll_container or not content:
-		#return
-	## compute maximum scrollable offsets using Control.size (Godot 4)
-	#var max_h := maxf(0.0, content.size.x - scroll_container.size.x)
-	#var max_v := maxf(0.0, content.size.y - scroll_container.size.y)
-	#var h := float(scroll_container.get_h_scroll())
-	#var v := float(scroll_container.get_v_scroll())
-	## subtract pointer delta so content follows finger naturally
-	#h = clampf(h - delta_pos.x, 0.0, max_h)
-	#v = clampf(v - delta_pos.y, 0.0, max_v)
-	#scroll_container.set_h_scroll(int(h))
-	#scroll_container.set_v_scroll(int(v))
-
-
-
-#@tool
-#extends PanelContainer
-#
-#@onready var scroll_container: ScrollContainer = $ScrollContainer
-#
-#var pressed := false
-#var scroll_speed := Vector2()
-#
-#func _draw() -> void:
-	#draw_line(Vector2(75, 0), Vector2(75, size.y), Color(\"1e293b\"), 4)
-	#pass
-#
-#func _gui_input(event: InputEvent) -> void:
-	#if event is InputEventMouseMotion:
-		#var motion := event as InputEventMouseMotion
-		#
-		#if pressed and scroll_speed.is_zero_approx():
-			#if motion.relative.is_zero_approx():
-				#scroll_speed.x = 0
-				#scroll_speed.y = 0
-			#elif motion.relative.x > motion.relative.y:
-				#scroll_speed.x = motion.relative.x
-				#scroll_speed.y = 0
-			#else:
-				#scroll_speed.x = 0
-				#scroll_speed.y = motion.relative.y
-	#elif event is InputEventMouseButton:
-		#pressed = event.pressed
-
-
-
-
-
-#@tool
-#extends PanelContainer
-#
-#const line_clr := Color(\"27272a\")
-#const time_clr := Color(\"9c9cac\")
-#const start_time := 8.0
-#const end_time := 20.0
-#const line_spacing := 160.0
-#const offset := 30.0
-#const item_margin_x := 20.0
-#const item_margin_y := 10.0
-#
-#var item_style := StyleBoxFlat.new()
-#
-#func _init() -> void:
-	#item_style.corner_detail = 20
-	#item_style.set_corner_radius_all(20)
-	#item_style.bg_color = Color.ORANGE_RED
-#
-#func _draw() -> void:
-	#for i: int in Vector2(start_time, end_time + 1):
-		#draw_line(Vector2(0, (i - start_time) * line_spacing), Vector2(size.x, (i - start_time) * line_spacing), line_clr, 2)
-		#draw_string(get_theme_default_font(), Vector2(10, (i - start_time) * line_spacing + offset), \"%02d:00\" % [i], HORIZONTAL_ALIGNMENT_LEFT, -1, 24, time_clr)
-	#draw_line(Vector2(line_spacing, 0), Vector2(line_spacing, size.y), line_clr, 2)
-	#
-	#_draw_item(9, 11, \"Test1\")
-	#_draw_item(11, 12, \"Test1\")
-#
-#func _draw_item(from: float, to: float, lecture_text: String) -> void:
-	#const item_padding := 20
-	#const font_size := 40
-	#const align := HORIZONTAL_ALIGNMENT_LEFT
-	#var font: Font = get_theme_default_font()
-	#var item_position := Vector2(line_spacing + item_margin_x, (from - start_time) * line_spacing + item_margin_y)
-	#var item_size := Vector2(size.x - line_spacing - item_margin_x * 2, (to-from) * line_spacing - item_margin_y * 2)
-	#var content_margin := line_spacing + item_margin_x + item_padding
-	#var max_size := size.x - line_spacing - item_margin_x * 2 - item_padding * 2
-	#var text_size := font.get_string_size(lecture_text, align, -1, font_size)
-	#
-	#draw_style_box(item_style, Rect2(item_position, item_size))
-	#if text_size.x > max_size:
-		#text_size.x = max_size - font.get_string_size(\"...\", align, -1, font_size).x
-		#draw_string(
-			#font, 
-			#Vector2(content_margin + text_size.x, item_position.y + font.get_height(font_size)), 
-			#\"...\", 
-			#align, 
-			#-1, 
-			#font_size, 
-			#Color.WHITE
-		#)
-	#draw_string(
-		#font, 
-		#Vector2(content_margin, item_position.y + font.get_height(font_size)), 
-		#lecture_text, 
-		#HORIZONTAL_ALIGNMENT_LEFT, 
-		#text_size.x, 
-		#font_size, 
-		#Color.WHITE
-	#)
-	#pass
 "
 
-[sub_resource type="GDScript" id="GDScript_i2mmo"]
-script/source = "@tool
-extends HBoxContainer
-
-
-func _ready() -> void:
-	get_parent_control().resized.connect(update)
-
-func update() -> void:
-	custom_minimum_size.x = 3 * get_parent_control().size.x
-	#(get_parent() as ScrollContainer).get_
-	(get_parent() as ScrollContainer).set_h_scroll(int(get_parent_control().size.x))
-	print(int(get_parent_control().size.x))
-"
-
-[node name="VBoxContainer" type="VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" node_paths=PackedStringArray("reload_button", "day_buttons_container", "selected_date", "scroll_container", "h_box_container", "previous_day_view_container", "current_day_view_container", "next_day_view_container", "main_view")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -919,11 +438,20 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = SubResource("Theme_rt867")
 script = SubResource("GDScript_iqtqh")
+reload_button = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Reload")
+day_buttons_container = NodePath("MarginContainer/VBoxContainer/MarginContainer/ScrollContainer/DayButtonsContainer")
+selected_date = NodePath("MarginContainer/VBoxContainer/HBoxContainer/SelectedDate")
+scroll_container = NodePath("MainView/ScrollContainer")
+h_box_container = NodePath("MainView/ScrollContainer/HBoxContainer")
+previous_day_view_container = NodePath("MainView/ScrollContainer/HBoxContainer/PreviousDayView/PreviousDayViewContainer")
+current_day_view_container = NodePath("MainView/ScrollContainer/HBoxContainer/CurrentDayView/CurrentDayViewContainer")
+next_day_view_container = NodePath("MainView/ScrollContainer/HBoxContainer/NextDayView/NextDayViewContainer")
+main_view = NodePath("MainView")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 2
 theme_override_constants/margin_left = 40
-theme_override_constants/margin_top = 60
+theme_override_constants/margin_top = 100
 theme_override_constants/margin_right = 40
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
@@ -941,7 +469,7 @@ icon = ExtResource("2_7vw6b")
 flat = true
 icon_alignment = 1
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="SelectedDate" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Monday, Oct 23"
@@ -963,7 +491,6 @@ layout_mode = 2
 clip_contents = false
 layout_mode = 2
 size_flags_vertical = 0
-follow_focus = true
 horizontal_scroll_mode = 3
 vertical_scroll_mode = 0
 
@@ -973,7 +500,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 30
 alignment = 1
-script = SubResource("GDScript_x03ua")
 
 [node name="MainView" type="PanelContainer" parent="."]
 clip_contents = true
@@ -987,7 +513,6 @@ script = SubResource("GDScript_8iklj")
 [node name="ScrollContainer" type="ScrollContainer" parent="MainView"]
 layout_mode = 2
 mouse_filter = 2
-scroll_horizontal = 1080
 horizontal_scroll_mode = 3
 vertical_scroll_mode = 3
 
@@ -997,9 +522,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 0
-script = SubResource("GDScript_i2mmo")
 
-[node name="PrevoiusDayView" type="MarginContainer" parent="MainView/ScrollContainer/HBoxContainer"]
+[node name="PreviousDayView" type="MarginContainer" parent="MainView/ScrollContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1008,7 +532,7 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="PrevoiusDayViewContainer" type="VBoxContainer" parent="MainView/ScrollContainer/HBoxContainer/PrevoiusDayView"]
+[node name="PreviousDayViewContainer" type="VBoxContainer" parent="MainView/ScrollContainer/HBoxContainer/PreviousDayView"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
